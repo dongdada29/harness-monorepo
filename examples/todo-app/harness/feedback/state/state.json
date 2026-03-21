@@ -1,0 +1,32 @@
+{
+  "project": "todo-app",
+  "version": "1.0.0",
+  "type": "generic",
+  "lastUpdated": "2026-03-22",
+  "currentTask": null,
+  "taskStatus": "idle",
+  "stage": "none",
+  "checkpoints": {
+    "CP1": "pending",
+    "CP2": "pending",
+    "CP3": "pending",
+    "CP4": "pending",
+    "CP5": "pending"
+  },
+  "gates": {
+    "lint": "pending",
+    "typecheck": "pending",
+    "test": "pending",
+    "build": "pending"
+  },
+  "constraints": {
+    "maxFilesPerTask": 5
+  },
+  "recentChanges": [
+    {
+      "timestamp": "2026-03-22T01:25:00Z",
+      "type": "initialized",
+      "description": "Project initialized"
+    }
+  ]
+}
