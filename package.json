@@ -11,7 +11,13 @@
     "check": "./scripts/check.sh",
     "cleanup": "./scripts/cleanup.sh",
     "list": "./scripts/list.sh",
-    "help": "cat README.md"
+    "help": "cat README.md",
+    "test": "bash tests/unit-tests.sh",
+    "test:unit": "bash tests/unit-tests.sh",
+    "test:quick": "bash scripts/quick-validate.sh",
+    "test:benchmark": "cd packages/agent-harness && bash tests/test-benchmark.sh",
+    "validate": "bash scripts/quick-validate.sh",
+    "ci": "npm run test && npm run validate"
   },
   "keywords": [
     "agent",

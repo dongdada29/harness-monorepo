@@ -1,0 +1,14 @@
+# Harness Eval CLI Dependencies
+# Minimal dependencies for benchmark and evaluation
+
+# Core (usually pre-installed)
+# Python >= 3.8
+
+# Optional: faster JSON parsing
+# orjson>=3.9.0
+
+# Optional: colorful output
+# rich>=13.0.0
+
+# Optional: progress bars
+# tqdm>=4.66.0
