@@ -122,3 +122,41 @@ jobs:
       - name: Run Evaluator
         run: python3 tools/eval-cli/evaluator.py --period weekly
 ```
+
+## Benchmark
+
+运行基准测试获得综合评分：
+
+```bash
+python3 tools/eval-cli/benchmark.py --project /path/to/project
+```
+
+### 评分维度
+
+| 维度 | 权重 | 说明 |
+|------|------|------|
+| **Harness Structure** | 30% | 必需文件是否完整 |
+| **Code Quality** | 30% | console.log、debugger 数量 |
+| **Task Metrics** | 40% | 完成任务率、阻塞率 |
+
+### 评分标准
+
+| 分数 | 等级 | 说明 |
+|------|------|------|
+| 90-100 | A | Excellent |
+| 80-89 | B | Good |
+| 70-79 | C | Fair |
+| 60-69 | D | Needs Improvement |
+| <60 | F | Poor |
+
+### 示例输出
+
+```
+TOTAL SCORE            85.0/100
+
+Grade: B (Good)
+
+Recommendations:
+- Complete Harness structure
+- Clean up code issues
+```
