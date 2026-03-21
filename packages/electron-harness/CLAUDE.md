@@ -1,46 +1,23 @@
 # CLAUDE.md - Agent Harness
 
-> Claude Code 启动时**自动加载**
+> AI 编码 Agent 工程化工作流
 
 ---
 
-## 什么是 Agent Harness？
+## 核心原则
 
-一套适用于**所有 AI 编码 Agent**的工程化工作流。
-
-```
-Input ──→ Process ──→ Output ──→ Feedback
-```
-
----
-
-## 支持的 Agent
-
-| Agent | 配置文件 |
-|-------|----------|
-| Claude Code | `CLAUDE.md` (本文件) |
-| Cursor | `.cursorrules` |
-| Codex | `AGENTS.md` |
-| OpenCode | `AGENTS.md` |
-
----
-
-## 支持的项目类型
-
-| 项目 | 配置目录 |
-|------|----------|
-| Nuwax Agent OS | `harness/projects/nuwax/` |
-| Electron + Ant Design | `harness/projects/electron/` |
-| 通用项目 | `harness/projects/generic/` |
+1. **输入决定输出** - 结构化任务定义
+2. **约束优于自由** - 明确的禁止和必须
+3. **反馈创造智能** - 持续的状态追踪
 
 ---
 
 ## 立即行动
 
 ```
-1. 读取 harness/base/constraints.md
-2. 读取 harness/projects/{项目类型}/constraints.md
-3. 读取 harness/feedback/state/state.json
+1. 读 harness/feedback/state/state.json
+2. 读 harness/base/constraints.md
+3. 读项目类型约束（harness/projects/{type}/constraints.md）
 ```
 
 ---
@@ -72,77 +49,14 @@ CP1 → CP2 → CP3 → CP4 → CP5
 Gate 1: npm run lint       → 0 errors
 Gate 2: npm run typecheck → 0 errors
 Gate 3: npm test           → all pass
-Gate 4: npm run build    → 0 errors
-```
-
----
-
-## 目录结构
-
-```
-agent-harness/
-├── CLAUDE.md                    # Claude Code 入口
-├── .cursorrules                # Cursor 入口
-├── AGENTS.md                   # Codex/OpenCode 入口
-├── harness/
-│   ├── base/                  # 通用基础
-│   │   ├── constraints.md     # 通用约束
-│   │   └── tasks/             # 通用任务模板
-│   ├── universal/              # 通用配置
-│   │   └── agents/            # Agent 专用
-│   │       ├── claude/
-│   │       ├── codex/
-│   │       ├── cursor/
-│   │       └── opencode/
-│   └── projects/               # 项目专用
-│       ├── nuwax/             # Nuwax
-│       ├── electron/           # Electron
-│       └── generic/           # 通用
-├── docs/
-└── scripts/
-```
-
----
-
-## 快速开始
-
-### 1. 选择项目类型
-
-```bash
-# Nuwax
-rsync -av harness/projects/nuwax/ /你的nuwax项目/
-
-# Electron
-rsync -av harness/projects/electron/ /你的electron项目/
-
-# 通用
-rsync -av harness/projects/generic/ /你的项目/
-```
-
-### 2. 选择 Agent
-
-```bash
-# Claude Code
-cp CLAUDE.md /你的项目/
-
-# Cursor
-cp .cursorrules /你的项目/
-
-# Codex/OpenCode
-cp AGENTS.md /你的项目/
-```
-
-### 3. 开始
-
-```bash
-claude
+Gate 4: npm run build     → 0 errors
 ```
 
 ---
 
 ## 详细文档
 
-- `docs/getting-started.md` - 快速开始
-- `docs/usage.md` - 详细使用指南
 - `harness/base/constraints.md` - 通用约束
-- `harness/projects/{项目}/` - 项目专用配置
+- `harness/projects/{type}/constraints.md` - 项目约束
+- `docs/usage.md` - 使用指南
+- `docs/agent-tips.md` - Agent 技巧
