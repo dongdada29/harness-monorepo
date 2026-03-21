@@ -1,17 +1,16 @@
 {
   "name": "@harness/monorepo",
   "version": "1.0.0",
-  "description": "Agent Harness Monorepo - 所有 Agent 开发工作流的统一管理",
+  "description": "Agent Harness Monorepo - 所有 AI 编码 Agent 的工程化工作流",
   "private": true,
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "dev:agent-harness": "cp packages/agent-harness/CLAUDE.md ./CLAUDE.md",
-    "dev:nuwax": "rsync -av --exclude='.git' packages/nuwax-harness/ /path/to/nuwax/",
-    "dev:electron": "rsync -av --exclude='.git' packages/electron-harness/ /path/to/electron/",
-    "dev:generic": "rsync -av --exclude='.git' packages/generic-harness/ /path/to/project/",
-    "list": "ls packages/",
+    "setup": "./setup.sh",
+    "check": "./scripts/check.sh",
+    "cleanup": "./scripts/cleanup.sh",
+    "list": "./scripts/list.sh",
     "help": "cat README.md"
   },
   "keywords": [
@@ -19,9 +18,14 @@
     "claude-code",
     "cursor",
     "codex",
+    "opencode",
     "harness",
     "workflow"
   ],
   "author": "dongdada29",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dongdada29/harness-monorepo"
+  }
 }
