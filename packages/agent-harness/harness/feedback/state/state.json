@@ -1,8 +1,8 @@
 {
-  "project": "",
-  "version": "1.0.0",
+  "project": "agent-harness",
+  "version": "1.1.0",
   "type": "generic",
-  "lastUpdated": "",
+  "lastUpdated": "2026-03-22",
   "currentTask": null,
   "taskStatus": "idle",
   "stage": "none",
@@ -25,8 +25,15 @@
   "metrics": {
     "tasksCompleted": 0,
     "tasksBlocked": 0,
-    "averageTaskDuration": null,
-    "humanInterventions": 0
+    "averageTaskDuration": 0,
+    "firstTryPassRate": 100,
+    "lastReset": "2026-03-22T00:00:00Z"
   },
-  "recentChanges": []
+  "recentChanges": [
+    {
+      "timestamp": "2026-03-22T00:00:00Z",
+      "type": "initialized",
+      "description": "Package initialized"
+    }
+  ]
 }

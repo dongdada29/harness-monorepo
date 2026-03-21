@@ -173,11 +173,31 @@ setup_state() {
   "constraints": {
     "maxFilesPerTask": 5
   },
+  "metrics": {
+    "tasksCompleted": 0,
+    "tasksBlocked": 0,
+    "averageTaskDuration": 0,
+    "firstTryPassRate": 100,
+    "lastReset": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  },
   "recentChanges": []
 }
 EOF
     
     success "已初始化: state.json"
+}
+
+# Copy scripts directory
+setup_scripts_dir() {
+    local target=$1
+    
+    info "复制 scripts 目录..."
+    
+    if [ -d "scripts" ]; then
+        mkdir -p "$target/scripts"
+        cp -r scripts/*.sh "$target/scripts/" 2>/dev/null || true
+        success "已复制: scripts 目录"
+    fi
 }
 
 # Make scripts executable
@@ -255,6 +275,7 @@ main() {
     copy_agent_config "$target" "agent-harness"
     copy_harness "$type" "$target"
     setup_state "$target" "$type"
+    setup_scripts_dir "$target"
     setup_scripts "$target"
     
     next_steps "$type"
