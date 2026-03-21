@@ -81,6 +81,32 @@ Gate 4: npm run build     → 0 errors
 
 ---
 
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [QUICKSTART.md](./QUICKSTART.md) | 5 分钟快速开始 |
+| [docs/USAGE_EXAMPLES.md](./docs/USAGE_EXAMPLES.md) | 使用案例集 |
+| [docs/AGENT_INTEGRATION.md](./docs/AGENT_INTEGRATION.md) | Agent 集成指南 |
+| [docs/BENCHMARK_METRICS.md](./docs/BENCHMARK_METRICS.md) | Benchmark 指标详解 |
+| [docs/VALIDATION.md](./docs/VALIDATION.md) | 验证指南 |
+| [docs/FAQ.md](./docs/FAQ.md) | 常见问题 |
+| [docs/troubleshooting.md](./docs/troubleshooting.md) | 故障排查 |
+
+---
+
+## npm scripts
+
+```bash
+npm run setup          # 安装 harness
+npm run test           # 单元测试 (28 个测试)
+npm run test:quick     # 快速验证 (5 分钟)
+npm run validate       # 快速验证
+npm run ci             # CI 完整流程
+```
+
+---
+
 ## GitHub
 
 https://github.com/dongdada29/harness-monorepo
