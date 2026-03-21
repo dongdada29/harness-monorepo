@@ -1,0 +1,55 @@
+name: Harness Benchmark
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # 每周一
+  workflow_dispatch:          # 手动触发
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Run Benchmark
+        run: |
+          python3 tools/eval-cli/benchmark.py \
+            --project packages/agent-harness \
+            --output json \
+            --save benchmark-results/agent-harness.json
+          
+          python3 tools/eval-cli/benchmark.py \
+            --project packages/nuwax-harness \
+            --output json \
+            --save benchmark-results/nuwax-harness.json
+      
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_number }}
+          path: benchmark-results/
+      
+      - name: Comment Results
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('benchmark-results/agent-harness.json'));
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Harness Benchmark Results\n\n` +
+                    `**Score**: ${results.overall}/100 (${results.grade})\n\n` +
+                    `| Category | Score |\n|---------|------|\n` +
+                    `| Efficiency | ${results.efficiency.completion_rate || 0}% |\n` +
+                    `| Quality | ${results.quality.quality_base || 0}% |\n` +
+                    `| Behavior | ${results.behavior.update_rate || 0}% |\n` +
+                    `| Autonomy | ${results.autonomy.autonomy_rate || 0}% |`
+            });
