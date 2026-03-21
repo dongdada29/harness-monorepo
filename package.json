@@ -1,6 +1,6 @@
 {
   "name": "@harness/monorepo",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Agent Harness Monorepo - 所有 AI 编码 Agent 的工程化工作流",
   "private": true,
   "workspaces": [
