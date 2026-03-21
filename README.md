@@ -4,7 +4,7 @@
 
 ---
 
-## 一站式安装
+## 快速开始
 
 ```bash
 git clone https://github.com/dongdada29/harness-monorepo.git
@@ -14,61 +14,35 @@ cd harness-monorepo
 
 ---
 
-## 支持的 Package
+## Packages
 
-| Package | 说明 | Agent |
-|---------|------|-------|
-| **nuwax-harness** | Nuwax Agent OS 专用 | Claude Code / Cursor / Codex / OpenCode |
-| **electron-harness** | Electron + Ant Design 专用 | Claude Code / Cursor / Codex / OpenCode |
-| **generic-harness** | 通用项目模板 | Claude Code / Cursor / Codex / OpenCode |
-
----
-
-## 快速开始
-
-### 1. 选择项目类型
-
-```bash
-./setup.sh nuwax /path/to/project     # Nuwax 项目
-./setup.sh electron /path/to/project # Electron 项目
-./setup.sh generic /path/to/project  # 通用项目
-```
-
-### 2. 检查配置
-
-```bash
-./scripts/check.sh /path/to/project
-```
-
-### 3. 开始使用
-
-```bash
-cd /path/to/project
-claude  # Claude Code
-# 或打开 Cursor / Codex
-```
+| Package | 说明 |
+|---------|------|
+| **agent-harness** | 通用版（Claude Code / Cursor / Codex / OpenCode） |
+| **nuwax-harness** | Nuwax Agent OS 专用 |
+| **electron-harness** | Electron + Ant Design 专用 |
+| **generic-harness** | 通用项目模板 |
 
 ---
 
-## 脚本工具
+## Scripts
 
-| 脚本 | 功能 |
+| 脚本 | 说明 |
 |------|------|
-| `./setup.sh <type> <dir>` | 一键安装 |
-| `./scripts/check.sh <dir>` | 检查配置完整性 |
-| `./scripts/list.sh` | 列出所有 Package |
-| `./scripts/init.sh <type> <dir>` | 初始化项目 |
+| `setup.sh` | 一键安装 |
+| `scripts/check.sh` | 配置检查 |
+| `scripts/cleanup.sh` | 技术债务扫描 |
+| `scripts/eval.sh` | 效果评估 |
+| `scripts/init.sh` | 初始化 |
+| `scripts/list.sh` | 列出 Package |
 
 ---
 
-## Agent 支持
+## Tools
 
-| Agent | 配置文件 |
-|-------|----------|
-| Claude Code | `CLAUDE.md` |
-| Cursor | `.cursorrules` |
-| Codex | `AGENTS.md` |
-| OpenCode | `AGENTS.md` |
+| 工具 | 说明 |
+|------|------|
+| `tools/eval-cli/` | 完整评估系统（Python/Shell） |
 
 ---
 
@@ -107,28 +81,9 @@ Gate 4: npm run build     → 0 errors
 
 ---
 
-## 目录结构
-
-```
-harness-monorepo/
-├── setup.sh                      # 一键安装脚本
-├── scripts/
-│   ├── check.sh                # 配置检查
-│   ├── list.sh                  # Package 列表
-│   └── init.sh                  # 初始化
-└── packages/
-    ├── nuwax-harness/         # Nuwax 专用
-    ├── electron-harness/       # Electron 专用
-    └── generic-harness/         # 通用模板
-```
-
----
-
 ## GitHub
 
 https://github.com/dongdada29/harness-monorepo
-
----
 
 ## 相关项目
 
