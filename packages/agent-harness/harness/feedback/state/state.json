@@ -3,11 +3,9 @@
   "version": "1.0.0",
   "type": "generic",
   "lastUpdated": "",
-  
   "currentTask": null,
   "taskStatus": "idle",
   "stage": "none",
-  
   "checkpoints": {
     "CP1": "pending",
     "CP2": "pending",
@@ -15,17 +13,20 @@
     "CP4": "pending",
     "CP5": "pending"
   },
-  
   "gates": {
     "lint": "pending",
     "typecheck": "pending",
     "test": "pending",
     "build": "pending"
   },
-  
   "constraints": {
     "maxFilesPerTask": 5
   },
-  
+  "metrics": {
+    "tasksCompleted": 0,
+    "tasksBlocked": 0,
+    "averageTaskDuration": null,
+    "humanInterventions": 0
+  },
   "recentChanges": []
 }

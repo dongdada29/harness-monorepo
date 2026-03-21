@@ -27,5 +27,12 @@
     "maxFilesPerTask": 5
   },
   
+  "metrics": {
+    "tasksCompleted": 0,
+    "tasksBlocked": 0,
+    "averageTaskDuration": null,
+    "humanInterventions": 0
+  },
+  
   "recentChanges": []
 }
