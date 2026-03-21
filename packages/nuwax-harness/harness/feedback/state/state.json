@@ -1,6 +1,7 @@
 {
-  "project": "nuwax",
+  "project": "",
   "version": "1.0.0",
+  "type": "generic",
   "lastUpdated": "",
   
   "currentTask": null,
@@ -23,15 +24,8 @@
   },
   
   "constraints": {
-    "maxFilesPerTask": 5,
-    "requireReviewBeforeMerge": true
+    "maxFilesPerTask": 5
   },
   
-  "recentChanges": [],
-  
-  "metrics": {
-    "tasksCompleted": 0,
-    "tasksBlocked": 0,
-    "averageTaskDuration": null
-  }
+  "recentChanges": []
 }
