@@ -1,0 +1,28 @@
+{
+  "name": "agent-harness",
+  "version": "1.0.0",
+  "description": "Control theory engineering workflow for Claude Code",
+  "main": "index.js",
+  "scripts": {
+    "verify": "./scripts/verify.sh",
+    "lint": "echo 'No linter configured for template project'",
+    "typecheck": "echo 'No type checker configured for template project'",
+    "test": "echo 'No tests configured for template project'",
+    "build": "echo 'No build step configured for template project'"
+  },
+  "keywords": [
+    "claude-code",
+    "harness",
+    "workflow",
+    "engineering"
+  ],
+  "author": "dongdada29",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dongdada29/agent-harness"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
