@@ -1,0 +1,29 @@
+{
+  "_schema": "harness-v2",
+  "version": "1.0.0",
+  "type": "generic",
+  "platform": "auto",
+  "lastUpdated": "2026-03-23T01:16:11.406200",
+  "currentTask": null,
+  "taskStatus": "idle",
+  "checkpoints": {
+    "CP0": "pending",
+    "CP1": "pending",
+    "CP2": "pending",
+    "CP3": "pending",
+    "CP4": "pending",
+    "CP5": "pending"
+  },
+  "gates": {
+    "init": "pending",
+    "plan": "pending",
+    "exec": "pending",
+    "verify": "pending",
+    "complete": "pending"
+  },
+  "metrics": {
+    "tasksCompleted": 0,
+    "tasksBlocked": 0,
+    "averageTaskDuration": 0
+  }
+}
