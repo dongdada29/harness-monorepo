@@ -16,7 +16,7 @@
 
 | 项目 | 约束文件 |
 |------|----------|
-| Nuwax | `harness/projects/nuwax/constraints.md` |
+| Generic | `harness/projects/generic/constraints.md` |
 | Electron | `harness/projects/electron/constraints.md` |
 | 通用 | `harness/projects/generic/constraints.md` |
 

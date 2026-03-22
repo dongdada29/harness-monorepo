@@ -127,7 +127,7 @@ enum CheckpointStatus {
 ~/workspace/**      # 开发工作区
 ~/projects/**      # 项目目录
 ~/dev/**          # 开发目录
-/tmp/nuwaclaw/**  # 临时沙箱
+/tmp/harness/**  # 临时沙箱
 ```
 
 #### 禁止路径 ❌

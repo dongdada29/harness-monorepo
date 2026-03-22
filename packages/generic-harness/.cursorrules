@@ -16,7 +16,7 @@
 
 | 项目 | 配置 |
 |------|------|
-| Nuwax | `harness/projects/nuwax/` |
+| Generic | `harness/projects/generic/` |
 | Electron | `harness/projects/electron/` |
 | 通用 | `harness/projects/generic/` |
 

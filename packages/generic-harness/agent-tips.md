@@ -255,7 +255,7 @@ review 这几个文件，找潜在 bug
 git clone <repo>
 
 # 2. 安装 harness
-./setup.sh nuwax .
+./setup.sh generic .
 
 # 3. 启动 Agent
 claude
