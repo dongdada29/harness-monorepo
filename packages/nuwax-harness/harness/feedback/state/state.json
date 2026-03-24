@@ -1,35 +1,29 @@
 {
-  "project": "nuwax-harness",
-  "version": "1.1.0",
-  "type": "nuwax",
-  "lastUpdated": "2026-03-22",
-  "currentTask": null,
-  "taskStatus": "idle",
-  "stage": "none",
+  "_schema": "harness-feedback-v1",
+  "version": "1.0.0",
+  "type": "package",
+  "platform": "nuwax",
+  "lastUpdated": "2026-03-25",
   "checkpoints": {
+    "CP0": "pending",
     "CP1": "pending",
     "CP2": "pending",
     "CP3": "pending",
-    "CP4": "pending",
-    "CP5": "pending"
+    "CP4": "pending"
   },
   "gates": {
-    "lint": "pending",
     "typecheck": "pending",
-    "test": "pending",
-    "build": "pending"
-  },
-  "constraints": {
-    "maxFilesPerTask": 5,
-    "techStack": "electron",
-    "uiFramework": "ant-design"
+    "build": "pending",
+    "test": "pending"
   },
   "metrics": {
     "tasksCompleted": 0,
     "tasksBlocked": 0,
-    "averageTaskDuration": 0,
-    "firstTryPassRate": 100,
-    "lastReset": "2026-03-22T00:00:00Z"
+    "gatesPassed": 0,
+    "gatesFailed": 0,
+    "mcpToolsInvoked": 0,
+    "humanInterventions": 0,
+    "averageTaskDuration": 0
   },
   "recentChanges": []
 }
