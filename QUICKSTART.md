@@ -1,94 +1,87 @@
-# Quick Start
+# Quick Start - 5 分钟上手
 
-> 5 分钟快速上手 Harness
-
----
-
-## Step 1: 选择你的 Agent
-
-| Agent | 配置文件 |
-|-------|----------|
-| Claude Code | `CLAUDE.md` |
-| Cursor | `.cursorrules` |
-| Codex/OpenCode | `AGENTS.md` |
+> Harness Monorepo 快速入门  
+> 版本: 1.0.0  
+> 更新: 2026-03-25
 
 ---
 
-## Step 2: 安装 Harness
+## 1. 什么是 Harness
+
+Harness 是 AI Coding Agent 的**工程化框架**，提供：
+- 标准化工作流 (CP0→CP1→CP2→CP3→CP4)
+- 量化评分体系 (Benchmark)
+- 质量门禁 (Gates)
+
+---
+
+## 2. 安装
 
 ```bash
-# 克隆
 git clone https://github.com/dongdada29/harness-monorepo.git
 cd harness-monorepo
-
-# 安装（选择项目类型）
-./setup.sh nuwax /path/to/your/project
 ```
 
 ---
 
-## Step 3: 开始使用
+## 3. 为项目启用 Harness
 
 ```bash
-# 启动 Claude Code
-claude
+# 方式 1: 使用 setup 脚本
+./setup.sh nuwax /path/to/project
 
-# 查看状态
-/state
-
-# 开始任务
-/start 添加登录功能
-
-# 验证
-/verify
-
-# 完成
-/done
+# 方式 2: 复制模板
+cp -r templates/basic /path/to/project/harness
 ```
 
 ---
 
-## 工作流
-
-```
-CP1 → CP2 → CP3 → CP4 → CP5
-任务确认 → 规划分解 → 执行实现 → 质量门禁 → 审查完成
-```
-
----
-
-## 质量门禁
-
-```bash
-# Gate 1: Lint
-npm run lint
-
-# Gate 2: Type
-npm run typecheck
-
-# Gate 3: Test
-npm run test
-
-# Gate 4: Build
-npm run build
-```
-
----
-
-## 常用命令
+## 4. 常用命令
 
 | 命令 | 说明 |
 |------|------|
-| `/state` | 查看状态 |
-| `/start <任务>` | 开始任务 |
-| `/verify` | 运行验证 |
-| `/done` | 完成任务 |
-| `/blocked <原因>` | 报告阻塞 |
+| `./scripts/check.sh` | 检查配置 |
+| `./scripts/eval.sh` | 评估效果 |
+| `./scripts/validate.sh` | 验证 Schema |
 
 ---
 
-## 下一步
+## 5. 工作流程
 
-- 查看 `docs/usage.md` 详细指南
-- 查看 `docs/evaluation.md` 效果评估
-- 运行 `python3 tools/eval-cli/benchmark.py` 获得评分
+```
+1. 读取 harness/base/state.json
+2. 执行任务（遵循 constraints.md）
+3. 更新 checkpoint
+4. 通过 Gate（lint → test → build）
+5. 提交审查
+```
+
+---
+
+## 6. Benchmark 评分
+
+```bash
+python3 tools/benchmark/benchmark.py --project .
+# 输出: Score /100, Grade A-F
+```
+
+---
+
+## 7. 下一步
+
+- 阅读 [README.md](./README.md) 了解整体架构
+- 查看 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) 深入设计
+- 参考 [docs/USAGE_EXAMPLES.md](./docs/USAGE_EXAMPLES.md) 实战案例
+
+---
+
+## 8. 常见问题
+
+**Q: 需要安装依赖吗？**
+A: 不需要，Harness 是纯配置文件。
+
+**Q: 支持哪些 Agent？**
+A: Claude Code, Cursor, Codex, OpenCode, Copilot。
+
+**Q: 如何自定义？**
+A: 编辑 `harness/base/constraints.md`。
