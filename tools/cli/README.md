@@ -1,46 +1,63 @@
-# Tools Layer
+# Tools CLI
 
-> Tools for harness development  
+> Harness 命令行工具  
 > 版本: 1.0.0  
-> 更新: 2026-03-23
+> 更新: 2026-03-25
 
 ---
 
-## Tools
+## 1. 概述
+
+Tools 层提供 CLI 工具集，用于管理 Harness 项目。
+
+---
+
+## 2. 工具列表
 
 | 工具 | 说明 |
 |------|------|
-| **cli** | Harness CLI 工具 |
-| **benchmark** | Benchmark 评分工具 |
-| **validator** | Schema 验证器 |
-| **generator** | 项目生成器 |
+| `benchmark/` | 效果评分 |
+| `validator/` | Schema 验证 |
+| `generator/` | 项目生成 |
+| `eval-cli/` | 评估系统 |
+| `harness-cli/` | CLI 工具 |
 
 ---
 
-## CLI
+## 3. 安装
 
 ```bash
-harness init              # 初始化
-harness status           # 查看状态
-harness checkpoint      # 标记检查点
-harness validate        # 验证 Schema
-harness report          # 生成报告
+# 添加到 PATH
+export PATH=$PATH:~/harness-monorepo/tools/cli
+
+# 或使用完整路径
+~/harness-monorepo/tools/cli/harness.sh
 ```
 
 ---
 
-## Benchmark
+## 4. 常用命令
 
 ```bash
-benchmark.py --project ./    # 评分
-benchmark.py --compare a b   # 对比两次
+# 初始化
+python3 tools/harness-cli/harness.py init
+
+# 检查状态
+python3 tools/harness-cli/harness.py status
+
+# 创建检查点
+python3 tools/harness-cli/harness.py checkpoint
+
+# 验证
+python3 tools/harness-cli/harness.py validate
 ```
 
 ---
 
-## Validator
+## 5. 快捷脚本
 
-```bash
-validate.py state.json       # 验证状态
-validate.py schema         # 验证 Schema
-```
+| 脚本 | 说明 |
+|------|------|
+| `harness.sh` | 主 CLI |
+| `check.sh` | 快速检查 |
+| `validate.sh` | 验证 |
