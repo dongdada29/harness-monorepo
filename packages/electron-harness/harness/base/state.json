@@ -1,5 +1,5 @@
 {
-  "_schema": "harness-feedback-v1",
+  "_schema": "harness-core-v1",
   "version": "1.0.0",
   "type": "package",
   "platform": "electron",
@@ -12,18 +12,14 @@
     "CP4": "pending"
   },
   "gates": {
-    "typecheck": "pending",
-    "lint": "pending",
-    "test": "pending",
-    "build": "pending"
+    "init": "pending",
+    "plan": "pending",
+    "exec": "pending",
+    "verify": "pending",
+    "complete": "pending"
   },
   "metrics": {
     "tasksCompleted": 0,
-    "tasksBlocked": 0,
-    "gatesPassed": 0,
-    "gatesFailed": 0,
-    "humanInterventions": 0,
-    "averageTaskDuration": 0
-  },
-  "recentChanges": []
+    "tasksBlocked": 0
+  }
 }

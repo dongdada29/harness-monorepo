@@ -1,8 +1,8 @@
 {
   "_schema": "harness-feedback-v1",
   "version": "1.0.0",
-  "type": "package",
-  "platform": "electron",
+  "type": "tech",
+  "platform": "cli",
   "lastUpdated": "2026-03-25",
   "checkpoints": {
     "CP0": "pending",

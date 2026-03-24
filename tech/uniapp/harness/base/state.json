@@ -1,0 +1,25 @@
+{
+  "_schema": "harness-core-v1",
+  "version": "1.0.0",
+  "type": "tech",
+  "platform": "uniapp",
+  "lastUpdated": "2026-03-25",
+  "checkpoints": {
+    "CP0": "pending",
+    "CP1": "pending",
+    "CP2": "pending",
+    "CP3": "pending",
+    "CP4": "pending"
+  },
+  "gates": {
+    "init": "pending",
+    "plan": "pending",
+    "exec": "pending",
+    "verify": "pending",
+    "complete": "pending"
+  },
+  "metrics": {
+    "tasksCompleted": 0,
+    "tasksBlocked": 0
+  }
+}
