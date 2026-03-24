@@ -2,7 +2,7 @@
   "_schema": "harness-feedback-v1",
   "version": "1.0.0",
   "type": "business",
-  "platform": "nuwax",
+  "platform": "agent-desktop",
   "lastUpdated": "2026-03-25",
   "checkpoints": {
     "CP0": "pending",
@@ -12,16 +12,15 @@
     "CP4": "pending"
   },
   "gates": {
-    "typecheck": "pending",
-    "build": "pending",
-    "test": "pending"
+    "check": "pending",
+    "test": "pending",
+    "build": "pending"
   },
   "metrics": {
     "tasksCompleted": 0,
     "tasksBlocked": 0,
     "gatesPassed": 0,
     "gatesFailed": 0,
-    "mcpToolsInvoked": 0,
     "humanInterventions": 0,
     "averageTaskDuration": 0
   },
