@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Harness State Schema v2",
+  "type": "object",
+  "properties": {
+    "_schema": { 
+      "type": "string",
+      "const": "harness-state-v2"
+    },
+    "version": { 
+      "type": "string",
+      "const": "2.0.0"
+    },
+    "project": { "type": "string" },
+    "type": { "type": "string", "enum": ["business", "tech", "generic"] },
+    "platform": { "type": "string" },
+    "checkpoints": {
+      "type": "object",
+      "properties": {
+        "CP0": { "$ref": "#/definitions/checkpoint" },
+        "CP1": { "$ref": "#/definitions/checkpoint" },
+        "CP2": { "$ref": "#/definitions/checkpoint" },
+        "CP3": { "$ref": "#/definitions/checkpoint" },
+        "CP4": { "$ref": "#/definitions/checkpoint" }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "properties": {
+        "init": { "type": "string", "enum": ["pending", "passed", "failed"] },
+        "plan": { "type": "string", "enum": ["pending", "passed", "failed"] },
+        "exec": { "type": "string", "enum": ["pending", "passed", "failed"] },
+        "verify": { "type": "string", "enum": ["pending", "passed", "failed"] },
+        "complete": { "type": "string", "enum": ["pending", "passed", "failed"] }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "properties": {
+        "lastRetrieval": {
+          "type": "object",
+          "properties": {
+            "timestamp": { "type": "string", "format": "date-time" },
+            "type": { "type": "string", "enum": ["cp0_init", "cp1_plan", "cp2_exec", "cp3_verify"] },
+            "episodicHits": { "type": "number" },
+            "semanticHits": { "type": "number" }
+          },
+          "required": ["timestamp", "type"]
+        },
+        "episodicBuffer": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "taskId": { "type": "string" },
+              "summary": { "type": "string" },
+              "resolution": { "type": "string" },
+              "success": { "type": "boolean" },
+              "relevanceScore": { "type": "number", "minimum": 0, "maximum": 1 },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "semanticCache": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "tasksCompleted": { "type": "number" },
+        "tasksBlocked": { "type": "number" },
+        "mcpToolsInvoked": { "type": "number" },
+        "retrievalHits": { "type": "number" }
+      }
+    }
+  },
+  "definitions": {
+    "checkpoint": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "failed", "skipped"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "duration": { "type": "number" },
+        "notes": { "type": "string" },
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

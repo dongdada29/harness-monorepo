@@ -1,8 +1,71 @@
-# Nuwax Harness 约束配置 (v3.0.0 - 2026-03-23)
+# Harness Constraints v4.0.0
 
-> 版本: 3.0.0  
-> 基于: Anthropic Effective Harnesses + OpenAI Harness Engineering  
-> 更新: 2026-03-23
+> **版本**: 4.0.0  
+> **日期**: 2026-04-17  
+> **变更**: 新增三层继承机制 + 冲突解决规则
+
+---
+
+## 0. 三层架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  Business (业务层)                       │
+│                                                          │
+│  business/nuwax/harness/base/constraints.md             │
+│  → 继承 Core，可 Override（覆盖）或 Extend（扩展）       │
+└──────────────────────────┬──────────────────────────────┘
+                           │ extends: core
+┌──────────────────────────▼──────────────────────────────┐
+│                     Core (核心层)                        │
+│                                                          │
+│  core/constraints.md ← 本文件                            │
+│  → 所有业务和技术栈必须遵守的基础规则                    │
+└──────────────────────────┬──────────────────────────────┘
+                           │ extends: core
+┌──────────────────────────▼──────────────────────────────┐
+│                  Tech Stack (技术栈层)                   │
+│                                                          │
+│  tech/electron/harness/base/constraints.md              │
+│  tech/rust/harness/base/constraints.md                  │
+│  → 继承 Core，可针对技术栈放宽或收紧规则                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 0.1 继承规则
+
+| 规则 | 说明 |
+|------|------|
+| **默认继承** | Business/Tech 层自动继承 Core 层所有规则 |
+| **Override** | 子层可以覆盖父层规则，但必须显式声明 `_override: true` |
+| **Extend** | 子层可以扩展父层规则，追加而非覆盖 |
+| **禁止删除** | 子层不能删除父层规则，只能覆盖为宽松版本 |
+
+### 0.2 冲突解决
+
+```
+优先级: Tech > Business > Core
+
+场景 1: Core 禁止 rm -rf，Tech(electron) 允许
+结果: Tech 允许（Tech > Core）
+
+场景 2: Core 允许 npm install，Business(nuwax) 要求先确认
+结果: Business 需要确认（Business > Core）
+
+场景 3: Tech 和 Business 都有规则，且冲突
+结果: Tech 优先（Tech > Business）
+```
+
+### 0.3 冲突警告
+
+当检测到 Override 时，Harness 应输出警告：
+
+```
+[WARN] constraints override detected:
+  - layer: tech/electron
+  - overridden: core/constraints.md#4.4
+  - new_rule: "允许 electron-builder 打包时执行 sudo"
+```
 
 ---
 
@@ -94,6 +157,17 @@ enum CheckpointStatus {
 | 检查点 | 永久 | 审计用 |
 | 模式学习 | 30 天 | patterns |
 | 敏感数据 | 0 | 立即删除 |
+
+### 3.3 Memory 检索时机
+
+参考: `core/harness/feedback/memory-retrieval.md`
+
+| 时机 | 触发条件 | 检索类型 |
+|------|----------|----------|
+| CP0 INIT | 任务开始 | Working Context + Episodic |
+| CP1 PLAN | 需要项目规范 | Semantic |
+| CP2 EXEC | 阻塞 30min+ | Episodic |
+| CP3 VERIFY | 验证失败 | Episodic |
 
 ---
 
@@ -264,6 +338,16 @@ checkpointInterval: 300000 (5 分钟)
 }
 ```
 
+### 7.3 自主等级
+
+参考: `core/harness/feedback/autonomy.md`
+
+| 等级 | 描述 | 人类介入 |
+|------|------|----------|
+| L1-L3 | 需要人类确认 | 持续/每任务 |
+| L4-L6 | 自主执行，关键操作需确认 | approve 即可 |
+| L7-L9 | 高度自主 | 仅通知 |
+
 ---
 
 ## 8. 工作空间
@@ -339,6 +423,7 @@ CP0_INIT ──→ CP1_PLAN ──→ CP2_EXEC ──→ CP3_VERIFY ──→ CP
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-04-17 | 4.0.0 | 新增三层继承机制 + 冲突解决规则 |
 | 2026-03-23 | 3.0.0 | 基于 Anthropic/OpenAI 重构 |
 | 2026-03-22 | 2.1.0 | 沙箱内 rm -rf 允许 |
 | 2026-03-22 | 2.0.0 | 全面重构，增加路径白名单 |
