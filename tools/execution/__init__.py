@@ -23,6 +23,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from tools.skills.source import LocalSource, GitHubSource, SkillMeta
+from tools.skills.installer import SkillInstaller
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -256,6 +261,36 @@ class ExecutionEngine:
         ts = datetime.now().strftime("%H:%M:%S")
         print("  [{}] {}".format(ts, msg))
 
+    def _search_skills(self, description: str) -> str:
+        """Search Skills Hub for relevant skills at CP1. Returns formatted skills context."""
+        query = description.lower()
+        results = []
+
+        # Search local templates
+        local = LocalSource()
+        results.extend(local.search(query, limit=5))
+
+        # Search GitHub repos (non-blocking, skip on error)
+        try:
+            github = GitHubSource()
+            results.extend(github.search(query, limit=5))
+        except Exception:
+            pass
+
+        if not results:
+            return ""
+
+        # Format skills context
+        lines = ["[RELEVANT SKILLS]", ""]
+        for meta in results[:8]:
+            lines.append(f"## {meta.name}")
+            lines.append(f"> {meta.description}" if meta.description else f"> Source: {meta.source}")
+            lines.append(f"Tags: {', '.join(meta.tags)}" if meta.tags else "")
+            lines.append(f"Location: ~/.harness/skills/{meta.source}/{meta.name}/" if hasattr(meta, 'source') else "")
+            lines.append("")
+
+        return "\n".join(lines)
+
     def _step(self, task: ExecutionTask, cp: str, action: str,
               input_data: Optional[Dict] = None,
               output_data: Optional[Dict] = None,
@@ -336,6 +371,7 @@ class ExecutionEngine:
             "You are running inside a harness execution engine.\n\n"
             + plan_context
             + "\n\n"
+            + (plan.get("skills_context", "") + "\n\n")
             + "TASK: "
             + description
             + "\n\nWork in "
@@ -404,8 +440,9 @@ class ExecutionEngine:
         return task
 
     def _plan(self, description: str) -> Dict:
-        """Simple rule-based planner."""
+        """Simple rule-based planner with skills search."""
         d = description.lower()
+        skills_context = self._search_skills(description)
 
         if "fix" in d or "bug" in d:
             strategy = "bugfix"
@@ -435,7 +472,7 @@ class ExecutionEngine:
                 {"tool": "openclaw_agent", "prompt": description},
             ]
 
-        return {"strategy": strategy, "steps": steps}
+        return {"strategy": strategy, "steps": steps, "skills_context": skills_context}
 
     def _format_plan(self, plan: Dict) -> str:
         lines = ["[HARNESS PLAN]", "Strategy: " + plan["strategy"], ""]
