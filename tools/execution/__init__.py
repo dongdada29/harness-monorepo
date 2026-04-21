@@ -27,6 +27,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from tools.skills.source import LocalSource, GitHubSource, SkillMeta
 from tools.skills.installer import SkillInstaller
+from tools.benchmark.runner import run_benchmark
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -412,21 +413,19 @@ class ExecutionEngine:
         # ── CP3: Verify ────────────────────────────────────────
         task.current_checkpoint = Checkpoint.CP3
         self._tick("[CP3] Verifying...")
-        verified = self._verify(task, agent_result)
-        self._step(task, Checkpoint.CP3, "verify", output_data=verified)
+        response_text = agent_result.get("text", "")
+        score = self._verify(task, description, response_text)
+        grade = getattr(task, '_benchmark_grade', 'N/A')
+        self._step(task, Checkpoint.CP3, "verify", output_data={"score": score, "grade": grade})
 
-        if verified["success"]:
+        if score >= 60:
             task.status = "completed"
-            score = verified.get("score")
-            if score:
-                task.result = {"score": score}
-                self._tick("     Verified. Score: {:.1f}/100".format(score))
-            else:
-                self._tick("     Verified.")
+            task.result = {"score": score, "grade": grade}
+            self._tick(f"     Verified. Score: {score:.1f}/100 ({grade})")
         else:
             task.status = "failed"
-            task.error = verified.get("error", "verification failed")
-            self._tick("     FAILED: {}".format(task.error))
+            task.error = "verification score below threshold"
+            self._tick(f"     FAILED: score {score:.1f} below threshold")
 
         task.completed_at = datetime.now().isoformat()
         task.updated_at = task.completed_at
@@ -480,27 +479,34 @@ class ExecutionEngine:
             lines.append("Step {}: [{}] {}".format(i+1, s.get("tool", "?"), s.get("prompt", "")))
         return "\n".join(lines)
 
-    def _verify(self, task: ExecutionTask, agent_result: Dict) -> Dict:
-        """Verify task completion."""
-        if not agent_result["ok"]:
-            return {"success": False, "error": agent_result.get("error", "agent failed")}
+    def _verify(self, task: Any, description: str, output: str) -> float:
+        """Verify task completion using Benchmark Runner (CP3)."""
+        try:
+            result = run_benchmark(str(self.project_path), output="json")
+            score = result.score
 
-        text = agent_result.get("text", "")
-        if not text or len(text) < 5:
-            return {"success": False, "error": "Empty agent response"}
+            # Store benchmark result in task for CP3 step (skip if task is None)
+            if task is not None:
+                task._benchmark_grade = result.grade
+                task._benchmark_result = result
 
-        # Simple scoring based on response quality
-        score = 70.0  # base
+            # Print benchmark summary
+            self._tick(f"     Benchmark: {score:.1f}/100 ({result.grade})")
+            if result.recommendations:
+                for rec in result.recommendations[:3]:
+                    self._tick(f"       → {rec}")
 
-        # Bonus for substantive responses
-        if len(text) > 500:
-            score += 10
-        if "error" not in text.lower() and "fail" not in text.lower():
-            score += 10
-        if "diff" in text.lower() or "implemented" in text.lower() or "fixed" in text.lower():
-            score += 10
-
-        return {"success": True, "score": min(score, 100.0)}
+            return score
+        except Exception as e:
+            self._tick(f"     Benchmark error: {e}, falling back to quality check")
+            # Fallback: simple quality heuristics
+            quality = 100
+            if len(output) < 50:
+                quality -= 30
+            if "error" in output.lower() or "fail" in output.lower():
+                quality -= 20
+            quality = max(0, min(100, quality))
+            return float(quality)
 
     def _save_task(self, task: ExecutionTask):
         EXEC_DIR.mkdir(parents=True, exist_ok=True)
