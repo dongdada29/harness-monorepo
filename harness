@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""harness — AI Agent Execution CLI"""
+import argparse
+import sys
+from pathlib import Path
+
+# Add parent dir to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+def cmd_run(args):
+    from tools.execution import ExecutionEngine
+    engine = ExecutionEngine(project_path=Path.cwd())
+    result = engine.run_task(args.task, timeout=args.timeout)
+    print(f"\nResult: {result['status']} | Score: {result.get('score', 'N/A')}")
+    return 0 if result['status'] == 'COMPLETED' else 1
+
+def cmd_status(args):
+    from tools.benchmark.runner import load_history
+    history = load_history(limit=5)
+    if not history:
+        print("No benchmark history found.")
+        return 0
+    for run in history:
+        print(f"  {run.timestamp} — {run.grade} ({run.score:.1f}/100)")
+    return 0
+
+def cmd_benchmark(args):
+    from tools.benchmark.runner import run_benchmark
+    result = run_benchmark(str(Path.cwd()), output="json")
+    print(f"Score: {result.score}/100 ({result.grade})")
+    print(f"  Efficiency: {result.efficiency:.1f}")
+    print(f"  Quality: {result.quality:.1f}")
+    print(f"  Behavior: {result.behavior:.1f}")
+    print(f"  Autonomy: {result.autonomy:.1f}")
+    if result.recommendations:
+        print("Recommendations:")
+        for rec in result.recommendations:
+            print(f"  → {rec}")
+    return 0
+
+def cmd_skills(args):
+    if args.skill_action == "search":
+        from tools.skills.source import LocalSource, GitHubSource
+        local = LocalSource()
+        github = GitHubSource()
+        results = local.search(args.query)
+        try:
+            results.extend(github.search(args.query))
+        except Exception:
+            pass
+        if not results:
+            print(f"No skills found for: {args.query}")
+            return 0
+        for meta in results:
+            print(f"## {getattr(meta, 'name', 'unknown')}")
+            desc = getattr(meta, 'description', None) or 'No description'
+            print(f"   {desc}")
+            src = getattr(meta, 'source', 'unknown')
+            tags = getattr(meta, 'tags', None)
+            tag_str = ', '.join(tags) if tags else 'none'
+            print(f"   Source: {src} | Tags: {tag_str}")
+            print()
+        return 0
+    elif args.skill_action == "install":
+        from tools.skills.source import GitHubSource
+        from tools.skills.installer import SkillInstaller
+        source = GitHubSource()
+        meta = source.fetch(args.query)
+        installer = SkillInstaller(source)
+        ok, msg = installer.install(meta)
+        print(msg)
+        return 0 if ok else 1
+    elif args.skill_action == "list":
+        from tools.skills.installer import SkillInstaller
+        from tools.skills.source import LocalSource
+        installer = SkillInstaller(LocalSource())
+        for meta in installer.list_installed():
+            print(f"## {getattr(meta, 'name', 'unknown')}")
+            desc = getattr(meta, 'description', None) or 'No description'
+            src = getattr(meta, 'source', 'unknown')
+            print(f"   {desc}")
+            print(f"   Source: {src}")
+        return 0
+
+def cmd_memory(args):
+    from tools.memory.store import MemoryStore
+    store = MemoryStore()
+    sections = store.get_snapshot()
+    total_len = sum(len(s) for s in sections)
+    print(f"Memory snapshot: {len(sections)} sections, ~{total_len} chars total")
+    for section in sections:
+        if section.strip():
+            preview = section.strip()[:100].replace('\n', ' ')
+            print(f"  - {preview}...")
+    return 0
+
+def main():
+    parser = argparse.ArgumentParser(prog="harness", description="AI Agent Execution CLI")
+    sub = parser.add_subparsers(dest="cmd")
+
+    # run
+    r = sub.add_parser("run", help="Run a task through the full pipeline")
+    r.add_argument("task", help="Task description")
+    r.add_argument("--timeout", type=int, default=120, help="Agent timeout in seconds")
+
+    # status
+    sub.add_parser("status", help="Show recent benchmark history")
+
+    # benchmark
+    sub.add_parser("benchmark", help="Run benchmark on current project")
+
+    # skills
+    s = sub.add_parser("skills", help="Manage skills")
+    s.add_argument("skill_action", choices=["search", "install", "list"], help="Action")
+    s.add_argument("query", nargs="?", help="Skill name or search query")
+
+    # memory
+    sub.add_parser("memory", help="Show memory snapshot")
+
+    args = parser.parse_args()
+    
+    if args.cmd == "run":
+        return cmd_run(args)
+    elif args.cmd == "status":
+        return cmd_status(args)
+    elif args.cmd == "benchmark":
+        return cmd_benchmark(args)
+    elif args.cmd == "skills":
+        return cmd_skills(args)
+    elif args.cmd == "memory":
+        return cmd_memory(args)
+    else:
+        parser.print_help()
+        return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
