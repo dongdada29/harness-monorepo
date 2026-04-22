@@ -9,10 +9,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 def cmd_run(args):
     from tools.execution import ExecutionEngine
-    engine = ExecutionEngine(project_path=Path.cwd())
-    result = engine.run_task(args.task, timeout=args.timeout)
-    print(f"\nResult: {result['status']} | Score: {result.get('score', 'N/A')}")
-    return 0 if result['status'] == 'COMPLETED' else 1
+    engine = ExecutionEngine(project_path=Path.cwd(), timeout=args.timeout)
+    result = engine.run_task(args.task)
+    print(f"\nResult: {result.status} | Score: {getattr(result, 'score', 'N/A')}")
+    return 0 if result.status == 'COMPLETED' else 1
 
 def cmd_status(args):
     from tools.benchmark.runner import load_history
