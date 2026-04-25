@@ -1,8 +1,11 @@
 {
-  "name": "@dongdada29/harness-monorepo",
+  "name": "@harnesskit/monorepo",
   "version": "2.1.0",
-  "description": "Agent Harness Monorepo with Sandbox Support",
+  "description": "Agent Harness Monorepo — Engineering workflow for AI coding agents",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "sync:sandbox": "./scripts/sync-sandbox-templates.sh",
     "update:docs": "node scripts/update-docs.js"

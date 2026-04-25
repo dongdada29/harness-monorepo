@@ -1,7 +1,7 @@
 {
-  "name": "@harnesskit/agent-harness",
+  "name": "@harnesskit/electron-harness",
   "version": "1.0.0",
-  "description": "Control theory engineering workflow for AI coding agents",
+  "description": "Electron + Ant Design harness for AI coding agents",
   "main": "index.js",
   "scripts": {
     "verify": "bash scripts/verify.sh",
@@ -10,12 +10,10 @@
   },
   "keywords": [
     "harness",
-    "claude-code",
-    "cursor",
-    "codex",
+    "electron",
+    "ant-design",
     "workflow",
-    "engineering",
-    "agent"
+    "engineering"
   ],
   "author": "dongdada29",
   "license": "MIT",

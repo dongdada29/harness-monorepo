@@ -1,7 +1,7 @@
 {
-  "name": "@harnesskit/agent-harness",
+  "name": "@harnesskit/generic-harness",
   "version": "1.0.0",
-  "description": "Control theory engineering workflow for AI coding agents",
+  "description": "Generic harness for any project type — language/framework agnostic",
   "main": "index.js",
   "scripts": {
     "verify": "bash scripts/verify.sh",
@@ -10,12 +10,10 @@
   },
   "keywords": [
     "harness",
-    "claude-code",
-    "cursor",
-    "codex",
+    "generic",
+    "universal",
     "workflow",
-    "engineering",
-    "agent"
+    "engineering"
   ],
   "author": "dongdada29",
   "license": "MIT",
