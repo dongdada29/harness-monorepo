@@ -1,0 +1,35 @@
+{
+  "name": "@harnesskit/cli",
+  "version": "1.0.0",
+  "description": "Harness CLI — One command to add AI agent engineering workflow to any project",
+  "main": "index.js",
+  "bin": {
+    "harness": "./bin/harness.js"
+  },
+  "scripts": {
+    "prepublishOnly": "node -e \"if(require('./package.json').description.length < 10) process.exit(1)\""
+  },
+  "keywords": [
+    "harness",
+    "claude-code",
+    "cursor",
+    "codex",
+    "workflow",
+    "engineering",
+    "agent",
+    "cli"
+  ],
+  "author": "dongdada29",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dongdada29/harness-monorepo"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0"
+  }
+}
