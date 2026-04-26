@@ -10,7 +10,6 @@ const chalk = require("chalk");
 const path = require("path");
 const fs = require("fs");
 const { execSync } = require("child_process");
-const { spawn } = require("child_process");
 
 // ── Paths ────────────────────────────────────────────────────────────────────
 const ROOT = path.resolve(__dirname, "../../..");
@@ -45,20 +44,15 @@ function copyDir(src, dst) {
 }
 
 function detectProjectType(dir) {
-  if (exists(path.join(dir, "package.json"))) {
-    const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
-    if (pkg.name && pkg.name.includes("nuwax")) return "nuwax";
-    if (pkg.dependencies?.electron || pkg.devDependencies?.electron) return "electron";
+  const pkgFile = path.join(dir, "package.json");
+  if (exists(pkgFile)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgFile, "utf8"));
+      if (pkg.name && pkg.name.includes("nuwax")) return "nuwax";
+      if (pkg.dependencies?.electron || pkg.devDependencies?.electron) return "electron";
+    } catch (_) {}
   }
   return "generic";
-}
-
-function readState(projectDir) {
-  const stateFile = path.join(projectDir, "harness/feedback/state/state.json");
-  if (fs.existsSync(stateFile)) {
-    return JSON.parse(fs.readFileSync(stateFile, "utf8"));
-  }
-  return null;
 }
 
 function writeState(projectDir, state) {
@@ -81,8 +75,7 @@ function runCmd(cmd, cwd) {
   }
 }
 
-// Parse constraints.md for gate definitions
-// Looks for: Gate N: <command> → <description>
+// Parse gates from constraints.md (looks for "Gate N: <cmd> → <desc>")
 function parseGates(constraintsPath) {
   const DEFAULT_GATES = [
     { name: "lint", cmd: "npm run lint", desc: "ESLint" },
@@ -90,13 +83,9 @@ function parseGates(constraintsPath) {
     { name: "test", cmd: "npm test", desc: "Tests" },
     { name: "build", cmd: "npm run build", desc: "Build" },
   ];
-
   if (!fs.existsSync(constraintsPath)) return DEFAULT_GATES;
-
   const content = fs.readFileSync(constraintsPath, "utf8");
   const gates = [];
-  // Match lines like: Gate 1: npm run lint       → eslint
-  // Or: Gate 1: npx tsc --noEmit → TypeScript check
   const re = /Gate\s+(\d+):\s*(.+?)\s*(?:→|->)\s*(.+)/gi;
   let m;
   while ((m = re.exec(content)) !== null) {
@@ -111,10 +100,11 @@ function parseGates(constraintsPath) {
 
 // ── Commands ────────────────────────────────────────────────────────────────
 
-// harness init [type] [target-dir]
-function initCommand(type, targetDir) {
+// harness init [type] [target-dir] [--template package|basic|advanced]
+function initCommand(type, targetDir, opts) {
   const target = path.resolve(targetDir || process.cwd());
   const HarnessType = type || detectProjectType(target);
+  const template = opts?.template || "package";
 
   const pkgMap = {
     nuwax: "@harnesskit/nuwax-harness",
@@ -124,75 +114,60 @@ function initCommand(type, targetDir) {
   };
 
   const pkgName = pkgMap[HarnessType] || pkgMap.generic;
-  const srcHarness = path.join(PKG_ROOT, "../", `${pkgName.replace("@harnesskit/", "")}/harness`);
-  const srcBase = path.join(PKG_ROOT, "../agent-harness/harness/base");
-
-  log.info(`Initializing harness in: ${target}`);
-  log.info(`Type: ${HarnessType} (${pkgName})`);
+  log.info("Initializing harness in: " + target);
+  log.info("Type: " + HarnessType + " (" + pkgName + ")");
 
   // Create harness dir
   const harnessDir = path.join(target, "harness");
   fs.mkdirSync(harnessDir, { recursive: true });
   fs.mkdirSync(path.join(harnessDir, "feedback/state"), { recursive: true });
 
-  // Copy base harness (core files)
-  try {
-    if (fs.existsSync(srcBase)) {
-      copyDir(srcBase, path.join(harnessDir, "base"));
-      log.ok("Base harness installed");
+  if (template === "package") {
+    // Use package overlays
+    const srcHarness = path.join(PKG_ROOT, "../", pkgName.replace("@harnesskit/", "") + "/harness");
+    const srcBase = path.join(PKG_ROOT, "../agent-harness/harness/base");
+    try {
+      if (fs.existsSync(srcBase)) {
+        copyDir(srcBase, path.join(harnessDir, "base"));
+        log.ok("Base harness installed");
+      }
+    } catch (e) { log.warn("Base files not found — continuing"); }
+    try {
+      if (fs.existsSync(srcHarness)) {
+        copyDir(srcHarness + "/.", harnessDir);
+        log.ok("Type overlay installed");
+      }
+    } catch (e) { log.warn("Overlay not found — continuing"); }
+  } else {
+    // Use templates dir
+    const templateDir = path.join(ROOT, "templates", template);
+    if (!fs.existsSync(templateDir)) {
+      log.err("Template '" + template + "' not found. Available: basic, advanced");
+      process.exit(1);
     }
-  } catch (e) {
-    log.warn("Base files not found — continuing");
+    copyDir(templateDir + "/.", harnessDir);
+    log.ok("Template '" + template + "' installed");
   }
 
-  // Copy type-specific overlay (projects/constraints/tasks)
-  try {
-    if (fs.existsSync(srcHarness)) {
-      copyDir(srcHarness + "/.", harnessDir);
-      log.ok("Type overlay installed");
-    }
-  } catch (e) {
-    log.warn("Overlay not found — continuing");
-  }
-
-  // Write state.json
+  // Write state.json (always v2)
   const stateFile = path.join(harnessDir, "feedback/state/state.json");
   const state = {
     _schema: "harness-state-v2",
     version: "2.0.0",
     project: path.basename(target),
-    type: "generic",
-    platform: "agent-desktop",
+    type: HarnessType === "generic" ? "generic" : HarnessType === "electron" ? "tech" : "business",
+    platform: HarnessType === "nuwax" ? "nuwax" : HarnessType === "electron" ? "electron" : "agent-desktop",
     lastUpdated: new Date().toISOString(),
-    checkpoints: {
-      CP0: "pending",
-      CP1: "pending",
-      CP2: "pending",
-      CP3: "pending",
-      CP4: "pending",
-    },
-    gates: {
-      init: "pending",
-      plan: "pending",
-      exec: "pending",
-      verify: "pending",
-      complete: "pending",
-    },
-    metrics: {
-      tasksCompleted: 0,
-      tasksBlocked: 0,
-    },
-    autonomy: {
-      level: 4,
-      requireApprovalFor: [],
-      autoMergeOnCI: false,
-    },
+    checkpoints: { CP0: "pending", CP1: "pending", CP2: "pending", CP3: "pending", CP4: "pending" },
+    gates: { init: "pending", plan: "pending", exec: "pending", verify: "pending", complete: "pending" },
+    metrics: { tasksCompleted: 0, tasksBlocked: 0 },
+    autonomy: { level: 4, requireApprovalFor: [], autoMergeOnCI: false },
   };
-
   fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
-  log.ok(`State initialized: ${stateFile}`);
+  log.ok("State initialized: " + stateFile);
 
   console.log(chalk.green("\n✅ Harness initialized successfully!"));
+  console.log(chalk.gray("  Template: " + template + "  |  Type: " + HarnessType));
   console.log(chalk.gray("  Next: harness state start <task>  to begin a task\n"));
 }
 
@@ -200,33 +175,27 @@ function initCommand(type, targetDir) {
 function stateCommand(cmd, args) {
   const projectDir = process.cwd();
   const stateFile = path.join(projectDir, "harness/feedback/state/state.json");
-
   if (!fs.existsSync(stateFile)) {
     log.err("No harness found. Run: harness init");
     process.exit(1);
   }
-
   const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
 
   switch (cmd) {
     case "show": {
-      const c = chalk;
-      console.log(`\n${c.bold("Harness State")} — ${state.project}`);
-      console.log(`CP0: ${state.checkpoints.CP0}  CP1: ${state.checkpoints.CP1}  CP2: ${state.checkpoints.CP2}  CP3: ${state.checkpoints.CP3}  CP4: ${state.checkpoints.CP4}`);
-      console.log(`Gate — init: ${state.gates.init}  plan: ${state.gates.plan}  exec: ${state.gates.exec}  verify: ${state.gates.verify}  complete: ${state.gates.complete}`);
-      console.log(`Autonomy: L${state.autonomy?.level || 4}`);
-      console.log(`Tasks: ${state.metrics.tasksCompleted} completed, ${state.metrics.tasksBlocked} blocked\n`);
+      console.log("\n" + chalk.bold("Harness State") + " — " + state.project);
+      console.log("CP0: " + state.checkpoints.CP0 + "  CP1: " + state.checkpoints.CP1 + "  CP2: " + state.checkpoints.CP2 + "  CP3: " + state.checkpoints.CP3 + "  CP4: " + state.checkpoints.CP4);
+      console.log("Gate — init: " + state.gates.init + "  plan: " + state.gates.plan + "  exec: " + state.gates.exec + "  verify: " + state.gates.verify + "  complete: " + state.gates.complete);
+      console.log("Autonomy: L" + (state.autonomy?.level || 4));
+      console.log("Tasks: " + state.metrics.tasksCompleted + " completed, " + state.metrics.tasksBlocked + " blocked\n");
       break;
     }
     case "start": {
-      if (!args) {
-        log.err("Usage: harness state start <task-description>");
-        process.exit(1);
-      }
+      if (!args) { log.err("Usage: harness state start <task-description>"); process.exit(1); }
       state.lastUpdated = new Date().toISOString();
       state.gates.init = "in_progress";
-      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
-      log.ok(`Task started: ${args}`);
+      writeState(projectDir, state);
+      log.ok("Task started: " + args);
       break;
     }
     case "done": {
@@ -236,70 +205,54 @@ function stateCommand(cmd, args) {
       state.gates.verify = "passed";
       state.metrics.tasksCompleted = (state.metrics.tasksCompleted || 0) + 1;
       state.lastUpdated = new Date().toISOString();
-      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+      writeState(projectDir, state);
       log.ok("Task marked as done");
       break;
     }
     case "blocked": {
-      if (!args) {
-        log.err("Usage: harness state blocked <reason>");
-        process.exit(1);
-      }
+      if (!args) { log.err("Usage: harness state blocked <reason>"); process.exit(1); }
       state.gates.exec = "blocked";
       state.metrics.tasksBlocked = (state.metrics.tasksBlocked || 0) + 1;
       state.lastUpdated = new Date().toISOString();
-      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
-      log.warn(`Blocked: ${args}`);
+      writeState(projectDir, state);
+      log.warn("Blocked: " + args);
       break;
     }
     case "gate": {
       const [gateName, gateStatus] = args ? args.split(" ") : [];
-      if (!gateName || !gateStatus) {
-        log.err("Usage: harness state gate <name> <passed|failed|pending>");
-        process.exit(1);
-      }
-      if (state.gates[gateName]) {
+      if (!gateName || !gateStatus) { log.err("Usage: harness state gate <name> <passed|failed|pending>"); process.exit(1); }
+      if (state.gates[gateName] !== undefined) {
         state.gates[gateName] = gateStatus;
         state.lastUpdated = new Date().toISOString();
-        fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
-        log.ok(`Gate '${gateName}' → ${gateStatus}`);
-      } else {
-        log.err(`Unknown gate: ${gateName}`);
-      }
+        writeState(projectDir, state);
+        log.ok("Gate '" + gateName + "' → " + gateStatus);
+      } else { log.err("Unknown gate: " + gateName); }
       break;
     }
     case "cp": {
       const [cpName, cpStatus] = args ? args.split(" ") : [];
-      if (!cpName || !cpStatus) {
-        log.err("Usage: harness state cp <CP0-CP4> <completed|failed|pending>");
-        process.exit(1);
-      }
+      if (!cpName || !cpStatus) { log.err("Usage: harness state cp <CP0-CP4> <completed|failed|pending>"); process.exit(1); }
       if (state.checkpoints[cpName]) {
         state.checkpoints[cpName] = cpStatus;
         state.lastUpdated = new Date().toISOString();
-        fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
-        log.ok(`Checkpoint '${cpName}' → ${cpStatus}`);
-      } else {
-        log.err(`Unknown checkpoint: ${cpName}`);
-      }
+        writeState(projectDir, state);
+        log.ok("Checkpoint '" + cpName + "' → " + cpStatus);
+      } else { log.err("Unknown checkpoint: " + cpName); }
       break;
     }
     case "level": {
       const level = parseInt(args, 10);
-      if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(level)) {
-        log.err("Autonomy level must be 1-9");
-        process.exit(1);
-      }
+      if (![1,2,3,4,5,6,7,8,9].includes(level)) { log.err("Autonomy level must be 1-9"); process.exit(1); }
       state.autonomy = state.autonomy || {};
       state.autonomy.level = level;
       state.autonomy.autoMergeOnCI = level >= 5;
       state.lastUpdated = new Date().toISOString();
-      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
-      log.ok(`Autonomy level → L${level}`);
+      writeState(projectDir, state);
+      log.ok("Autonomy level → L" + level);
       break;
     }
     default:
-      log.err(`Unknown state command: ${cmd}`);
+      log.err("Unknown state command: " + cmd);
       console.log("Usage: harness state <show|start|done|blocked|gate|cp|level>");
       process.exit(1);
   }
@@ -308,47 +261,38 @@ function stateCommand(cmd, args) {
 // harness verify [project-dir]
 function verifyCommand(projectDir) {
   const target = path.resolve(projectDir || process.cwd());
-  const c = chalk;
-
-  console.log(`\n${c.bold("═".repeat(50))}`);
-  console.log(`${c.bold("🔍 Running Quality Gates")}  —  ${target}`);
-  console.log(`${c.bold("═".repeat(50))}\n`);
+  console.log("\n" + chalk.bold("═".repeat(50)));
+  console.log(chalk.bold("🔍 Running Quality Gates") + "  —  " + target);
+  console.log(chalk.bold("═".repeat(50)) + "\n");
 
   // Load state
   const stateFile = path.join(target, "harness/feedback/state/state.json");
   let state = null;
-  if (fs.existsSync(stateFile)) {
-    state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
-  }
+  if (fs.existsSync(stateFile)) state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
 
-  // Parse gates from constraints.md
+  // Parse gates
   const constraintsPath = path.join(target, "harness/base/constraints.md");
   const gates = parseGates(constraintsPath);
-
   const results = [];
   let allPassed = true;
 
   for (const gate of gates) {
-    const start = Date.now();
     const label = gate.desc || gate.name;
-
-    console.log(`${c.bold(`Gate: ${label}`)}`);
-    console.log(`   └─ ${c.gray(gate.cmd)}`);
+    console.log(chalk.bold("Gate: " + label));
+    console.log("   " + chalk.gray(gate.cmd));
 
     const result = runCmd(gate.cmd, target);
-    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+    const elapsed = ((result.time) / 1000).toFixed(1);
 
     if (result.ok) {
-      console.log(`   └─ ${c.green("✅ Passed")}  (${elapsed}s)\n`);
+      console.log("   " + chalk.green("✅ Passed") + "  (" + elapsed + "s)\n");
       results.push({ gate: gate.name, status: "passed", time: result.time });
     } else {
       allPassed = false;
-      const truncated = result.stdout.length > 500
-        ? result.stdout.slice(0, 500) + "\n... (truncated)"
-        : result.stdout;
-      console.log(`   └─ ${c.red("❌ Failed")}  (${elapsed}s)`);
-      if (result.stderr) console.log(`     ${c.red(result.stderr)}`);
-      if (truncated) console.log(`     ${c.gray(truncated)}`);
+      const truncated = result.stdout.length > 500 ? result.stdout.slice(0, 500) + "\n... (truncated)" : result.stdout;
+      console.log("   " + chalk.red("❌ Failed") + "  (" + elapsed + "s)");
+      if (result.stderr) console.log("     " + chalk.red(result.stderr));
+      if (truncated) console.log("     " + chalk.gray(truncated));
       console.log();
       results.push({ gate: gate.name, status: "failed", time: result.time, error: result.stdout });
     }
@@ -357,70 +301,45 @@ function verifyCommand(projectDir) {
   // Update state
   if (state) {
     for (const r of results) {
-      if (state.gates[r.gate] !== undefined) {
-        state.gates[r.gate] = r.status;
-      }
+      if (state.gates[r.gate] !== undefined) state.gates[r.gate] = r.status;
     }
     state.gates.verify = allPassed ? "passed" : "failed";
     state.lastUpdated = new Date().toISOString();
     writeState(target, state);
   }
 
-  // Summary
-  console.log(`${c.bold("═".repeat(50))}`);
+  console.log(chalk.bold("═".repeat(50)));
   if (allPassed) {
-    console.log(`${c.green("🎉 All gates passed!")}\n`);
+    console.log(chalk.green("🎉 All gates passed!\n"));
   } else {
     const failed = results.filter(r => r.status === "failed").map(r => r.gate).join(", ");
-    console.log(`${c.red(`❌ Gates failed: ${failed}`)}\n`);
+    console.log(chalk.red("❌ Gates failed: " + failed) + "\n");
   }
-
   process.exit(allPassed ? 0 : 1);
 }
 
 // harness benchmark [project]
 function benchmarkCommand(projectDir) {
   const target = path.resolve(projectDir || process.cwd());
-  log.info(`Running benchmark: ${target}`);
-
+  log.info("Running benchmark: " + target);
   const script = path.join(ROOT, "tools/benchmark/runner.py");
-  if (!fs.existsSync(script)) {
-    log.err("Benchmark script not found");
-    process.exit(1);
-  }
-
+  if (!fs.existsSync(script)) { log.err("Benchmark script not found"); process.exit(1); }
   try {
-    const out = execSync(`python3 "${script}" --project "${target}" --output text`, {
-      cwd: ROOT,
-      stdio: "inherit",
-    });
-  } catch (e) {
-    // runner.py exits non-zero on low scores, but we still want to show output
-    // so we just warn
-    log.warn("Benchmark completed with issues");
-  }
+    execSync("python3 \"" + script + "\" --project \"" + target + "\" --output text", { cwd: ROOT, stdio: "inherit" });
+  } catch (e) { log.warn("Benchmark completed with issues"); }
 }
 
 // harness open-pr [args]
 function openPrCommand(args) {
   const script = path.join(ROOT, "scripts/open-pr.sh");
-  if (!fs.existsSync(script)) {
-    log.err("open-pr.sh not found");
-    process.exit(1);
-  }
-
+  if (!fs.existsSync(script)) { log.err("open-pr.sh not found"); process.exit(1); }
   try {
-    const fullCmd = `bash "${script}" ${args}`;
-    execSync(fullCmd, { stdio: "inherit", cwd: ROOT });
-  } catch (e) {
-    log.err("open-pr.sh failed");
-    process.exit(1);
-  }
+    execSync("bash \"" + script + "\" " + args, { stdio: "inherit", cwd: ROOT });
+  } catch (e) { log.err("open-pr.sh failed"); process.exit(1); }
 }
 
 // ── Main CLI ─────────────────────────────────────────────────────────────────
 const program = new Command();
-
 program
   .name("harness")
   .description("Harness CLI — Engineering workflow for AI coding agents")
@@ -429,6 +348,7 @@ program
 program
   .command("init [type] [target-dir]")
   .description("Initialize harness in a project (type: nuwax|electron|generic)")
+  .option("-t, --template <name>", "Template: package|basic|advanced (default: package)")
   .action(initCommand);
 
 program
@@ -448,7 +368,7 @@ program
 
 program
   .command("open-pr [args]")
-  .description("Open PR after CP3 (delegates to scripts/open-pr.sh)")
+  .description("Open PR after CP3")
   .action(openPrCommand);
 
 program
