@@ -219,7 +219,7 @@ function stateCommand(cmd, args) {
       break;
     }
     case "gate": {
-      const [gateName, gateStatus] = args ? args.split(" ") : [];
+      const argsStr = Array.isArray(args) ? args.join(" ") : (args || ""); const [gateName, gateStatus] = argsStr ? argsStr.split(" ") : [];
       if (!gateName || !gateStatus) { log.err("Usage: harness state gate <name> <passed|failed|pending>"); process.exit(1); }
       if (state.gates[gateName] !== undefined) {
         state.gates[gateName] = gateStatus;
@@ -230,7 +230,7 @@ function stateCommand(cmd, args) {
       break;
     }
     case "cp": {
-      const [cpName, cpStatus] = args ? args.split(" ") : [];
+      const argsStr2 = Array.isArray(args) ? args.join(" ") : (args || ""); const [cpName, cpStatus] = argsStr2 ? argsStr2.split(" ") : [];
       if (!cpName || !cpStatus) { log.err("Usage: harness state cp <CP0-CP4> <completed|failed|pending>"); process.exit(1); }
       if (state.checkpoints[cpName]) {
         state.checkpoints[cpName] = cpStatus;
@@ -346,8 +346,10 @@ program
   .version("1.0.0");
 
 program
-  .command("init [type] [target-dir]")
+  .command("init")
   .description("Initialize harness in a project (type: nuwax|electron|generic)")
+  .argument("[type]", "Project type (nuwax|electron|generic)")
+  .argument("[target-dir]", "Target directory (default: cwd)")
   .option("-t, --template <name>", "Template: package|basic|advanced (default: package)")
   .action(initCommand);
 
@@ -357,7 +359,7 @@ program
   .action(benchmarkCommand);
 
 program
-  .command("state <cmd> [args]")
+  .command("state <cmd> [args...]")
   .description("Manage harness state (show|start|done|blocked|gate|cp|level)")
   .action(stateCommand);
 

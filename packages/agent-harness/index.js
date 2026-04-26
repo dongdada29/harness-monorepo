@@ -46,6 +46,7 @@ function initState(cwd, projectName, type, platform) {
     recentChanges: [],
     taskHistory: [],
   };
+  fs.mkdirSync(path.join(cwd, "harness/feedback/state"), { recursive: true });
   saveState(cwd, state);
   return state;
 }
