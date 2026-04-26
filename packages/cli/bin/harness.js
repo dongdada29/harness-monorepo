@@ -10,6 +10,7 @@ const chalk = require("chalk");
 const path = require("path");
 const fs = require("fs");
 const { execSync } = require("child_process");
+const { spawn } = require("child_process");
 
 // ── Paths ────────────────────────────────────────────────────────────────────
 const ROOT = path.resolve(__dirname, "../../..");
@@ -60,6 +61,54 @@ function readState(projectDir) {
   return null;
 }
 
+function writeState(projectDir, state) {
+  const stateFile = path.join(projectDir, "harness/feedback/state/state.json");
+  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+}
+
+// Run a command, return { ok, stdout, stderr, time }
+function runCmd(cmd, cwd) {
+  const start = Date.now();
+  try {
+    const out = execSync(cmd, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 120_000,
+    });
+    return { ok: true, stdout: out.toString(), stderr: "", time: Date.now() - start };
+  } catch (e) {
+    return { ok: false, stdout: e.stdout?.toString() || "", stderr: e.stderr?.toString() || "", time: Date.now() - start };
+  }
+}
+
+// Parse constraints.md for gate definitions
+// Looks for: Gate N: <command> → <description>
+function parseGates(constraintsPath) {
+  const DEFAULT_GATES = [
+    { name: "lint", cmd: "npm run lint", desc: "ESLint" },
+    { name: "typecheck", cmd: "npx tsc --noEmit", desc: "TypeScript check" },
+    { name: "test", cmd: "npm test", desc: "Tests" },
+    { name: "build", cmd: "npm run build", desc: "Build" },
+  ];
+
+  if (!fs.existsSync(constraintsPath)) return DEFAULT_GATES;
+
+  const content = fs.readFileSync(constraintsPath, "utf8");
+  const gates = [];
+  // Match lines like: Gate 1: npm run lint       → eslint
+  // Or: Gate 1: npx tsc --noEmit → TypeScript check
+  const re = /Gate\s+(\d+):\s*(.+?)\s*(?:→|->)\s*(.+)/gi;
+  let m;
+  while ((m = re.exec(content)) !== null) {
+    gates.push({
+      name: m[3].trim().toLowerCase().replace(/\s+/g, "_"),
+      cmd: m[2].trim(),
+      desc: m[3].trim(),
+    });
+  }
+  return gates.length > 0 ? gates : DEFAULT_GATES;
+}
+
 // ── Commands ────────────────────────────────────────────────────────────────
 
 // harness init [type] [target-dir]
@@ -99,7 +148,7 @@ function initCommand(type, targetDir) {
   // Copy type-specific overlay (projects/constraints/tasks)
   try {
     if (fs.existsSync(srcHarness)) {
-      copyDir(srcHarness + '/.', harnessDir);
+      copyDir(srcHarness + "/.", harnessDir);
       log.ok("Type overlay installed");
     }
   } catch (e) {
@@ -256,6 +305,79 @@ function stateCommand(cmd, args) {
   }
 }
 
+// harness verify [project-dir]
+function verifyCommand(projectDir) {
+  const target = path.resolve(projectDir || process.cwd());
+  const c = chalk;
+
+  console.log(`\n${c.bold("═".repeat(50))}`);
+  console.log(`${c.bold("🔍 Running Quality Gates")}  —  ${target}`);
+  console.log(`${c.bold("═".repeat(50))}\n`);
+
+  // Load state
+  const stateFile = path.join(target, "harness/feedback/state/state.json");
+  let state = null;
+  if (fs.existsSync(stateFile)) {
+    state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+  }
+
+  // Parse gates from constraints.md
+  const constraintsPath = path.join(target, "harness/base/constraints.md");
+  const gates = parseGates(constraintsPath);
+
+  const results = [];
+  let allPassed = true;
+
+  for (const gate of gates) {
+    const start = Date.now();
+    const label = gate.desc || gate.name;
+
+    console.log(`${c.bold(`Gate: ${label}`)}`);
+    console.log(`   └─ ${c.gray(gate.cmd)}`);
+
+    const result = runCmd(gate.cmd, target);
+    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+
+    if (result.ok) {
+      console.log(`   └─ ${c.green("✅ Passed")}  (${elapsed}s)\n`);
+      results.push({ gate: gate.name, status: "passed", time: result.time });
+    } else {
+      allPassed = false;
+      const truncated = result.stdout.length > 500
+        ? result.stdout.slice(0, 500) + "\n... (truncated)"
+        : result.stdout;
+      console.log(`   └─ ${c.red("❌ Failed")}  (${elapsed}s)`);
+      if (result.stderr) console.log(`     ${c.red(result.stderr)}`);
+      if (truncated) console.log(`     ${c.gray(truncated)}`);
+      console.log();
+      results.push({ gate: gate.name, status: "failed", time: result.time, error: result.stdout });
+    }
+  }
+
+  // Update state
+  if (state) {
+    for (const r of results) {
+      if (state.gates[r.gate] !== undefined) {
+        state.gates[r.gate] = r.status;
+      }
+    }
+    state.gates.verify = allPassed ? "passed" : "failed";
+    state.lastUpdated = new Date().toISOString();
+    writeState(target, state);
+  }
+
+  // Summary
+  console.log(`${c.bold("═".repeat(50))}`);
+  if (allPassed) {
+    console.log(`${c.green("🎉 All gates passed!")}\n`);
+  } else {
+    const failed = results.filter(r => r.status === "failed").map(r => r.gate).join(", ");
+    console.log(`${c.red(`❌ Gates failed: ${failed}`)}\n`);
+  }
+
+  process.exit(allPassed ? 0 : 1);
+}
+
 // harness benchmark [project]
 function benchmarkCommand(projectDir) {
   const target = path.resolve(projectDir || process.cwd());
@@ -321,16 +443,8 @@ program
 
 program
   .command("verify [project-dir]")
-  .description("Run harness verification")
-  .action((dir) => {
-    const target = path.resolve(dir || process.cwd());
-    const script = path.join(PKG_ROOT, "../agent-harness/scripts/verify.sh");
-    if (fs.existsSync(script)) {
-      execSync(`bash "${script}"`, { stdio: "inherit", cwd: target });
-    } else {
-      log.err("verify.sh not found");
-    }
-  });
+  .description("Run quality gate verification (lint → typecheck → test → build)")
+  .action(verifyCommand);
 
 program
   .command("open-pr [args]")
