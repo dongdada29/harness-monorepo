@@ -75,7 +75,7 @@ function initCommand(type, targetDir) {
   };
 
   const pkgName = pkgMap[HarnessType] || pkgMap.generic;
-  const srcHarness = path.join(PKG_ROOT, "../", `${pkgName.replace("@harnesskit/", "")}-harness/harness`);
+  const srcHarness = path.join(PKG_ROOT, "../", `${pkgName.replace("@harnesskit/", "")}/harness`);
   const srcBase = path.join(PKG_ROOT, "../agent-harness/harness/base");
 
   log.info(`Initializing harness in: ${target}`);
@@ -86,18 +86,24 @@ function initCommand(type, targetDir) {
   fs.mkdirSync(harnessDir, { recursive: true });
   fs.mkdirSync(path.join(harnessDir, "feedback/state"), { recursive: true });
 
-  // Copy base harness
+  // Copy base harness (core files)
   try {
     if (fs.existsSync(srcBase)) {
       copyDir(srcBase, path.join(harnessDir, "base"));
       log.ok("Base harness installed");
     }
+  } catch (e) {
+    log.warn("Base files not found — continuing");
+  }
+
+  // Copy type-specific overlay (projects/constraints/tasks)
+  try {
     if (fs.existsSync(srcHarness)) {
-      copyDir(srcHarness, path.join(harnessDir, "overlay"));
-      log.ok("Overlay harness installed");
+      copyDir(srcHarness + '/.', harnessDir);
+      log.ok("Type overlay installed");
     }
   } catch (e) {
-    log.warn("Some files not found — continuing");
+    log.warn("Overlay not found — continuing");
   }
 
   // Write state.json
