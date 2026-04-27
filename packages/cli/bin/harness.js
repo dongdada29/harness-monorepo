@@ -251,9 +251,26 @@ function stateCommand(cmd, args) {
       log.ok("Autonomy level → L" + level);
       break;
     }
+    case "stats": {
+      const m = state.metrics || {};
+      console.log("\n" + chalk.bold("Metrics — " + state.project));
+      console.log("  Tasks completed: " + (m.tasksCompleted || 0));
+      console.log("  Tasks blocked:   " + (m.tasksBlocked || 0));
+      console.log("  Avg duration:    " + ((m.averageTaskDuration || 0) / 1000).toFixed(1) + "s");
+      console.log("  First-try pass:  " + ((m.firstTryPassRate || 0)) + "%");
+      const recent = state.recentChanges?.length || 0;
+      console.log("  Recent changes:  " + recent);
+      console.log("");
+      break;
+    }
+    case "export": {
+      const output = JSON.stringify(state, null, 2);
+      console.log(output);
+      break;
+    }
     default:
       log.err("Unknown state command: " + cmd);
-      console.log("Usage: harness state <show|start|done|blocked|gate|cp|level>");
+      console.log("Usage: harness state <show|start|done|blocked|gate|cp|level|stats|export>");
       process.exit(1);
   }
 }
@@ -327,6 +344,25 @@ function benchmarkCommand(projectDir) {
   try {
     execSync("python3 \"" + script + "\" --project \"" + target + "\" --output text", { cwd: ROOT, stdio: "inherit" });
   } catch (e) { log.warn("Benchmark completed with issues"); }
+}
+
+// harness test [project-dir]
+function testCommand(projectDir) {
+  const target = path.resolve(projectDir || process.cwd());
+  const pkgFile = path.join(target, "package.json");
+  if (!fs.existsSync(pkgFile)) { log.err("No package.json found in: " + target); process.exit(1); }
+
+  // Detect test command
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgFile, "utf8"));
+    const testCmd = pkg.scripts?.test || "npm test";
+    log.info("Running: " + testCmd);
+    execSync(testCmd, { cwd: target, stdio: "inherit" });
+    log.ok("Tests passed");
+  } catch (e) {
+    log.err("Tests failed (exit " + (e.status || 1) + ")");
+    process.exit(e.status || 1);
+  }
 }
 
 // harness clean
@@ -435,6 +471,12 @@ program
   .action(benchmarkCommand);
 
 program
+  .command("test [project-dir]")
+  .description("Run project tests (npm test)")
+  .argument("[project-dir]", "Target directory (default: cwd)")
+  .action(testCommand);
+
+program
   .command("state <cmd> [args...]")
   .description("Manage harness state (show|start|done|blocked|gate|cp|level)")
   .action(stateCommand);
@@ -452,7 +494,6 @@ program
 program
   .command("clean [target-dir]")
   .description("Reset harness state to CP0 (clean project)")
-  .argument("[target-dir]", "Target directory (default: cwd)")
   .action(cleanCommand);
 
 program
