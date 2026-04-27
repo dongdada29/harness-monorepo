@@ -365,6 +365,58 @@ function testCommand(projectDir) {
   }
 }
 
+// harness log
+function logCommand(targetDir, opts) {
+  const target = path.resolve(targetDir || process.cwd());
+  const stateFile = path.join(target, "harness/feedback/state/state.json");
+  if (!fs.existsSync(stateFile)) { log.err("No harness found"); process.exit(1); }
+  const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+  const changes = state.recentChanges || [];
+
+  if (changes.length === 0) {
+    console.log(chalk.gray("  No recent changes recorded."));
+    return;
+  }
+
+  const limit = opts?.limit || 10;
+  const reversed = [...changes].reverse().slice(0, limit);
+
+  console.log("\n" + chalk.bold("Recent Changes — " + state.project));
+  console.log(chalk.gray("  (last " + reversed.length + " of " + changes.length + ")\n"));
+  for (const c of reversed) {
+    const ts = c.timestamp ? c.timestamp.replace("T", " ").slice(0, 19) : "";
+    const typeTag = "[" + (c.type || "?").toUpperCase().padEnd(10) + "]";
+    const typeColor = c.type === "completed" ? chalk.green : c.type === "blocked" ? chalk.red : chalk.blue;
+    console.log("  " + ts + "  " + typeColor(typeTag) + "  " + (c.description || ""));
+  }
+  console.log();
+}
+
+// harness diff [project-dir] [cp]
+function diffCommand(projectDir, cpArg) {
+  const target = path.resolve(projectDir || process.cwd());
+  // Get CP checkpoint from args or latest
+  const cp = cpArg || "HEAD";
+  try {
+    // Get changed files since last commit
+    const out = execSync("git diff --name-only " + cp + " -- .", { cwd: target, encoding: "utf8", stdio: "pipe" });
+    const files = out.trim().split("\n").filter(Boolean);
+    if (files.length === 0) {
+      console.log(chalk.gray("  No file changes since " + cp));
+      return;
+    }
+    console.log("\n" + chalk.bold("Changed Files — " + target.split("/").pop()));
+    console.log(chalk.gray("  Since: " + cp + "\n"));
+    for (const f of files) {
+      console.log("  " + chalk.blue("~") + "  " + f);
+    }
+    console.log(chalk.gray("\n  " + files.length + " file(s) changed\n"));
+  } catch (e) {
+    log.err("git diff failed: " + (e.stderr || e.message));
+    process.exit(1);
+  }
+}
+
 // harness clean
 function cleanCommand(targetDir) {
   const target = path.resolve(targetDir || process.cwd());
@@ -500,6 +552,17 @@ program
   .command("doctor")
   .description("Check environment and harness status")
   .action(doctorCommand);
+
+program
+  .command("log [target-dir]")
+  .description("Show recent changes from state.json")
+  .option("-n, --limit <n>", "Number of entries to show", "10")
+  .action(logCommand);
+
+program
+  .command("diff [project-dir] [cp]")
+  .description("Show changed files since <cp> (default: HEAD)")
+  .action(diffCommand);
 
 program
   .command("help")

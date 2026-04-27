@@ -407,6 +407,48 @@ def bar(value: float, width: int = 20) -> str:
     return f"[{'#'*filled}{'-'*(width-filled)}]"
 
 
+def show_trend(limit: int = 10) -> None:
+    """Show a simple text trend chart of recent benchmark scores."""
+    history = load_history(limit)
+    if not history:
+        print("No benchmark history yet.")
+        return
+
+    print(f"\n{bold('Benchmark Trend')} — last {len(history)} runs\n")
+
+    # Find score range for scaling
+    scores = [r.score for r in history]
+    max_score = max(scores) if scores else 100
+    min_score = min(scores) if scores else 0
+    range_score = max_score - min_score if max_score != min_score else 20
+
+    for i, r in enumerate(reversed(history)):
+        ts = r.timestamp[5:10] if len(r.timestamp) >= 10 else r.timestamp
+        score_str = f"{r.score:5.1f}"
+        if r.score >= 80:
+            sc = green(score_str)
+        elif r.score >= 60:
+            sc = yellow(score_str)
+        else:
+            sc = red(score_str)
+
+        # Draw a mini bar
+        bar_len = max(3, int((r.score / 100) * 30))
+        bar = "=" * bar_len + "-" * (30 - bar_len)
+
+        marker = " " if i > 0 else "*"
+        delta = ""
+        if i > 0:
+            d = r.score - scores[-i]
+            delta = f" ({'+' if d >= 0 else ''}{d:.1f})"
+
+        print(f"  {marker} {ts}  {sc}  {r.grade}  {bar}{delta}")
+
+    avg = sum(scores) / len(scores)
+    print(f"\n  Avg: {avg:.1f}  |  Range: {min_score:.0f}-{max_score:.0f}{NC}")
+    print()
+
+
 # ---------------------------------------------------------------------------
 # Markdown report
 # ---------------------------------------------------------------------------
@@ -561,11 +603,16 @@ def main() -> int:
     parser.add_argument("--baseline", "-b", help="Compare with a baseline run (path to result JSON)")
     parser.add_argument("--output", "-o", choices=["text", "json", "markdown"], default="text")
     parser.add_argument("--history", action="store_true", help="Show history")
+    parser.add_argument("--trend", action="store_true", help="Show score trend chart")
     parser.add_argument("--limit", type=int, default=20, help="History limit")
     parser.add_argument("--save", "-s", help="Save result to file")
     args = parser.parse_args()
 
     project = args.project_dash or args.project
+
+    if args.trend:
+        show_trend(args.limit)
+        return 0
 
     if args.history:
         show_history(args.limit)
