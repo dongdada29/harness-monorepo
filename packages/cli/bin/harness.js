@@ -329,6 +329,82 @@ function benchmarkCommand(projectDir) {
   } catch (e) { log.warn("Benchmark completed with issues"); }
 }
 
+// harness clean
+function cleanCommand(targetDir) {
+  const target = path.resolve(targetDir || process.cwd());
+  const harnessDir = path.join(target, "harness");
+  if (!fs.existsSync(harnessDir)) {
+    log.warn("No harness found in: " + target);
+    process.exit(0);
+  }
+  log.info("Cleaning harness state in: " + target);
+  const stateFile = path.join(harnessDir, "feedback/state/state.json");
+  if (fs.existsSync(stateFile)) {
+    try {
+      const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+      state.checkpoints = { CP0: "pending", CP1: "pending", CP2: "pending", CP3: "pending", CP4: "pending" };
+      state.gates = { init: "pending", plan: "pending", exec: "pending", verify: "pending", complete: "pending" };
+      state.lastUpdated = new Date().toISOString();
+      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+      log.ok("State reset to CP0");
+    } catch (e) { log.err("Failed to reset state: " + e.message); process.exit(1); }
+  }
+  log.ok("Clean complete");
+}
+
+// harness doctor
+function doctorCommand() {
+  console.log("\n" + chalk.bold("🔍 Harness Doctor"));
+  console.log(chalk.gray("  Checking environment...\n"));
+  let issues = 0;
+
+  // Check Node version
+  const nodeVersion = process.version.replace("v", "").split(".")[0];
+  if (parseInt(nodeVersion) >= 18) {
+    log.ok("Node.js " + process.version + " (>= 18 required)");
+  } else {
+    log.err("Node.js " + process.version + " (need >= 18)");
+    issues++;
+  }
+
+  // Check workspace
+  const cwd = process.cwd();
+  const stateFile = path.join(cwd, "harness/feedback/state/state.json");
+  if (fs.existsSync(stateFile)) {
+    log.ok("Harness initialized (harness/ found)");
+    try {
+      const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+      const cp = state.checkpoints;
+      console.log(chalk.gray("    Project: " + state.project));
+      console.log(chalk.gray("    CP0:" + cp.CP0 + " CP1:" + cp.CP1 + " CP2:" + cp.CP2 + " CP3:" + cp.CP3 + " CP4:" + cp.CP4));
+    } catch (_) {}
+  } else {
+    log.warn("No harness initialized (run: harness init)");
+  }
+
+  // Check required commands
+  const requiredCmds = ["git", "node", "npm"];
+  for (const cmd of requiredCmds) {
+    try {
+      execSync("which " + cmd, { stdio: "ignore" });
+      log.ok(cmd + " available");
+    } catch (_) {
+      log.err(cmd + " not found");
+      issues++;
+    }
+  }
+
+  // Check CLI
+  const cliBin = path.join(ROOT, "packages/cli/bin/harness.js");
+  if (fs.existsSync(cliBin)) {
+    log.ok("CLI installed: " + cliBin);
+  } else {
+    log.warn("CLI not found (install via: npm install -g @harnesskit/cli)");
+  }
+  console.log((issues === 0 ? chalk.green("✅ All checks passed") : chalk.red("❌ " + issues + " issue(s) found")));
+  process.exit(issues > 0 ? 1 : 0);
+}
+
 // harness open-pr [args]
 function openPrCommand(args) {
   const script = path.join(ROOT, "scripts/open-pr.sh");
@@ -372,6 +448,17 @@ program
   .command("open-pr [args]")
   .description("Open PR after CP3")
   .action(openPrCommand);
+
+program
+  .command("clean [target-dir]")
+  .description("Reset harness state to CP0 (clean project)")
+  .argument("[target-dir]", "Target directory (default: cwd)")
+  .action(cleanCommand);
+
+program
+  .command("doctor")
+  .description("Check environment and harness status")
+  .action(doctorCommand);
 
 program
   .command("help")
