@@ -233,6 +233,21 @@ WEIGHTS = {
     "correction": 5,
 }
 
+# Weight labels for display
+WEIGHT_LABELS = {
+    "completion": "Task Completion",
+    "gate": "Gate Pass Rate",
+    "block": "Block Avoidance",
+    "quality": "Code Quality (no console.log/debugger)",
+    "type": "TypeScript Check",
+    "coverage": "Test Coverage",
+    "update": "State Freshness",
+    "tracking": "Change Tracking",
+    "violation": "Constraint Compliance",
+    "autonomy": "Autonomy Level",
+    "correction": "Self-Correction Rate",
+}
+
 
 def calculate_score(eff: Dict, qual: Dict, beh: Dict, aut: Dict) -> Tuple[float, str, str]:
     w = WEIGHTS
@@ -505,11 +520,45 @@ def show_history(limit: int = 20) -> None:
         print(f"  {score_color(f'{r.score:>6.1f}'):>6}  {r.grade:>4}  {r.project[:40]:<40}  {r.timestamp[:19]}")
 
 
+def compare_results(current: BenchmarkResult, baseline: BenchmarkResult) -> str:
+    diff = current.score - baseline.score
+    diff_str = f"+{diff:.1f}" if diff >= 0 else f"{diff:.1f}"
+    diff_color = green if diff >= 0 else red
+
+    lines = [
+        f"\n{bold('📊 Benchmark Comparison')}",
+        f"\n  Baseline:  {baseline.project}  — {baseline.score:.1f} ({baseline.grade})",
+        f"  Current:  {current.project}  — {current.score:.1f} ({current.grade})",
+        f"  Delta:    {diff_color(diff_str):>8}  ({current.grade} vs {baseline.grade})",
+        "",
+        bold("  Dimension Breakdown"),
+        f"  {'Dimension':<25} {'Baseline':>8} {'Current':>8} {'Delta':>8}",
+        f"  {'-'*25} {'-'*8} {'-'*8} {'-'*8}",
+    ]
+
+    dims = [
+        ("Efficiency", current.efficiency, baseline.efficiency, "completion_rate"),
+        ("Quality", current.quality, baseline.quality, "quality_base"),
+        ("Behavior", current.behavior, baseline.behavior, "update_rate"),
+        ("Autonomy", current.autonomy, baseline.autonomy, "autonomy_rate"),
+    ]
+    for name, curr, base, key in dims:
+        cv = curr.get(key, 0)
+        bv = base.get(key, 0)
+        d = cv - bv
+        d_str = f"+{d:.1f}" if d >= 0 else f"{d:.1f}"
+        d_color = green if d >= 0 else red
+        lines.append(f"  {name:<25} {bv:>8.1f} {cv:>8.1f} {d_color(d_str):>8}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Harness Benchmark Runner")
     parser.add_argument("project", nargs="?", default=".", help="Project path")
     parser.add_argument("--project", "-p", dest="project_dash", help="Project path (alt)")
-    parser.add_argument("--baseline", "-b", help="Baseline path (reserved)")
+    parser.add_argument("--baseline", "-b", help="Compare with a baseline run (path to result JSON)")
     parser.add_argument("--output", "-o", choices=["text", "json", "markdown"], default="text")
     parser.add_argument("--history", action="store_true", help="Show history")
     parser.add_argument("--limit", type=int, default=20, help="History limit")
@@ -527,6 +576,15 @@ def main() -> int:
     if args.save:
         Path(args.save).write_text(json.dumps(asdict(result), indent=2))
         print(f"\n  Saved to {args.save}")
+
+    # Compare with baseline if provided
+    if args.baseline:
+        try:
+            baseline_data = json.loads(Path(args.baseline).read_text())
+            baseline_result = BenchmarkResult(**baseline_data)
+            print(compare_results(result, baseline_result))
+        except Exception as e:
+            print(f"{yellow('Warning: Could not load baseline:')} {e}")
 
     # Exit code: 0 = S/A, 1 = B/C, 2 = D, 3 = F
     exit_code = 0 if result.score >= 80 else 1 if result.score >= 60 else 2 if result.score >= 50 else 3
