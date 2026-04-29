@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from tools.skills.source import LocalSource, GitHubSource, SkillMeta
 from tools.skills.installer import SkillInstaller
 from tools.benchmark.runner import run_benchmark
+from tools.execution.self_healing import run_cp4
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -47,6 +48,7 @@ class Checkpoint:
     CP1 = "cp1"
     CP2 = "cp2"
     CP3 = "cp3"
+    CP4 = "cp4"
 
 
 AUTONOMY_LEVELS = {
@@ -418,14 +420,33 @@ class ExecutionEngine:
         grade = getattr(task, '_benchmark_grade', 'N/A')
         self._step(task, Checkpoint.CP3, "verify", output_data={"score": score, "grade": grade})
 
-        if score >= 60:
+        if score >= RETRY_THRESHOLD:
             task.status = "completed"
             task.result = {"score": score, "grade": grade}
             self._tick(f"     Verified. Score: {score:.1f}/100 ({grade})")
         else:
-            task.status = "failed"
-            task.error = "verification score below threshold"
-            self._tick(f"     FAILED: score {score:.1f} below threshold")
+            task.current_checkpoint = "cp4"
+            self._tick(f"     CP3 score {score:.1f} < {RETRY_THRESHOLD} → triggering CP4 self-healing...")
+            cp4_result = run_cp4(
+                original_task=description,
+                score=score,
+                grade=grade,
+                project_path=self.project_path,
+            )
+            if cp4_result.ok:
+                task.status = "completed"
+                task.result = {"score": cp4_result.score, "grade": cp4_result.grade, "cp4_retried": True, "cp4_attempt": cp4_result.attempt}
+                self._tick(f"     CP4 success! Score: {cp4_result.score:.1f}/100 (attempt {cp4_result.attempt})")
+            else:
+                task.status = "failed"
+                task.error = cp4_result.error or f"CP4 exhausted — final score {cp4_result.score:.1f} < {RETRY_THRESHOLD}"
+                self._tick(f"     CP4 FAILED after {cp4_result.attempt} attempts, final score {cp4_result.score:.1f}")
+                self._step(task, "cp4", "self_healing", output_data={
+                    "retried": cp4_result.was_retried,
+                    "final_score": cp4_result.score,
+                    "final_grade": cp4_result.grade,
+                    "error": cp4_result.error,
+                })
 
         task.completed_at = datetime.now().isoformat()
         task.updated_at = task.completed_at
