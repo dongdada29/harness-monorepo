@@ -213,10 +213,17 @@ function stateCommand(cmd, args) {
       state.gates.plan = "passed";
       state.gates.exec = "passed";
       state.gates.verify = "passed";
+      state.gates.complete = "passed";
       state.metrics.tasksCompleted = (state.metrics.tasksCompleted || 0) + 1;
       state.lastUpdated = new Date().toISOString();
+      // Record in taskHistory
+      const currentTask = state.currentTask || "untitled task";
+      state.taskHistory = state.taskHistory || [];
+      state.taskHistory.push({ task: currentTask, completedAt: new Date().toISOString() });
+      if (state.taskHistory.length > 20) state.taskHistory = state.taskHistory.slice(-20);
+      state.currentTask = null;
       writeState(projectDir, state);
-      log.ok("Task marked as done");
+      log.ok("Task marked as done: " + currentTask);
       break;
     }
     case "blocked": {
