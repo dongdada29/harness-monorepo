@@ -677,7 +677,7 @@ program
 
 program
   .command("state <cmd> [args...]")
-  .description("Manage harness state (show|start|done|blocked|gate|cp|level)")
+  .description("Manage harness state (show|start|done|blocked|gate|cp|level|stats|history|export)")
   .action(stateCommand);
 
 program
