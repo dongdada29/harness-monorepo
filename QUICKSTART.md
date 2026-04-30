@@ -50,6 +50,8 @@ node packages/cli/bin/harness.js init generic /path/to/project --template basic
 | `harness state stats` | 查看 metrics |
 | `harness state export` | 导出 state.json |
 | `harness verify` | 运行质量门禁 |
+| `harness heal [--dry-run]` | CP4 自愈循环（Gate失败后自动修复重试） |
+| `harness healing <on|off|status>` | 管理自愈功能 |
 | `harness test` | 运行测试 |
 | `harness clean` | 重置到 CP0 |
 | `harness doctor` | 检查环境 |
@@ -60,10 +62,21 @@ node packages/cli/bin/harness.js init generic /path/to/project --template basic
 ## 5. 工作流程
 
 ```
-1. harness state start <任务描述>
+1. harness state start <任务描述>   # CP0 INIT：自动检索相似历史
 2. CP0 → CP1 → CP2 → CP3 → CP4
 3. 每个阶段通过 Gate
-4. harness state done
+4. Gate 失败 → harness heal      # CP4 自愈循环（自动修复重试）
+5. harness state done
+```
+
+### CP4 自愈循环
+
+当 `harness verify` 失败时：
+
+```bash
+harness heal              # 自动修复并重试验证
+harness heal --dry-run    # 只分析错误，不修复
+harness healing status    # 查看自愈状态和历史
 ```
 
 ### Gate 门禁（自动验证）

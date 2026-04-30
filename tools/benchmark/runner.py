@@ -203,8 +203,18 @@ def measure_autonomy(state: Dict) -> Dict[str, float]:
     total = solo + interventions or 1
     autonomy_rate = solo / total * 100
 
-    corrections = metrics.get("selfCorrections", 0)
+    # Read self-corrections from healing.retryHistory (primary)
+    # and fall back to metrics.selfCorrections (legacy)
+    healing = state.get("healing", {})
+    retry_history = healing.get("retryHistory", [])
+    if retry_history:
+        total_attempts = len(retry_history)
+        passed_attempts = sum(1 for r in retry_history if r.get("status") == "passed")
+        corrections = passed_attempts  # successful self-heals count as self-corrections
+    else:
+        corrections = metrics.get("selfCorrections", 0)
     corrections_rate = min(100, corrections * 20)
+
     escalations = metrics.get("escalations", 0)
     escalation_score = max(0, 100 - escalations * 5)
 
@@ -212,6 +222,8 @@ def measure_autonomy(state: Dict) -> Dict[str, float]:
         "autonomy_rate": autonomy_rate,
         "corrections_rate": corrections_rate,
         "escalation_score": escalation_score,
+        "healing_attempts": len(retry_history),
+        "healing_successes": sum(1 for r in retry_history if r.get("status") == "passed"),
     }
 
 
@@ -377,6 +389,7 @@ def report_text(result: BenchmarkResult, history: List[BenchmarkResult]) -> str:
         f"    Solo Rate      {bar(aut.get('autonomy_rate', 0))}  {aut.get('autonomy_rate', 0):.0f}%",
         f"    Corrections    {bar(aut.get('corrections_rate', 0))}  {aut.get('corrections_rate', 0):.0f}",
         f"    Escalation     {bar(aut.get('escalation_score', 0))}  {aut.get('escalation_score', 0):.0f}",
+        f"    Healing        {aut.get('healing_attempts', 0)} attempts, {aut.get('healing_successes', 0)} passed",
         "",
     ]
 

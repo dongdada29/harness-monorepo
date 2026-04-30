@@ -94,12 +94,16 @@ jobs:
       - name: Check shell scripts
         run: |
           echo "=== Checking shell scripts ==="
+          SHELLCHECK_AVAILABLE=true
           for f in $(find . -name "*.sh" -type f); do
+            if ! command -v shellcheck >/dev/null 2>&1; then
+              echo "  ⚠ shellcheck not installed, skipping check"
+              break
+            fi
             if shellcheck "$f" 2>/dev/null; then
               echo "  ✓ $f"
             else
-              echo "  ⚠ $f (shellcheck not available, skipping)"
-              break
+              echo "  ⚠ $f (warnings present)"
             fi
           done
 
