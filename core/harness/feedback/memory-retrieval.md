@@ -217,10 +217,12 @@ async function cp0Init(task: Task): Promise<CP0State> {
 ### Phase 4: 工具实现
 - [x] `tools/cli/memory-retrieval.py` — 检索 CLI (2026-04-30)
   - `--type episodic|semantic|healing|task`
-  - `--keywords` / `--limit` / `--days`
-  - `--json` raw output
+  - `--keywords` / `--limit` / `--days` / `--json`
 - [x] `tools/validator/state-validator.py` — Schema 验证 (2026-04-30)
   - 纯 Python 无依赖，支持 union types
+- [x] `scripts/test-validator.sh` — 7 个测试用例 (2026-04-30)
+- [x] `scripts/test-memory.sh` — 9 个测试用例 (2026-04-30)
+- [x] `.github/workflows/ci.yml` — 新增 tools-test job
 
 ---
 
