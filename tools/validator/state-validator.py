@@ -189,12 +189,15 @@ def main() -> int:
             return 1
 
     # Find schema
+    script_root = Path(__file__).resolve().parent.parent.parent
     if args.schema:
-        schema_path = Path(args.schema)
+        schema_path = Path(args.schema).resolve()
+        with open(schema_path) as f:
+            schema = json.load(f)
     else:
         candidates = [
-            Path(__file__).parent.parent / "core" / "schema" / "state.v2.schema.json",
-            Path("core/schema/state.v2.schema.json"),
+            script_root / "core" / "schema" / "state.v2.schema.json",
+            Path("core/schema/state.v2.schema.json").resolve(),
         ]
         schema_path = None
         for c in candidates:
