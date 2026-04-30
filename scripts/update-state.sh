@@ -23,7 +23,7 @@ usage() {
 Usage: $0 <command> [args]
 
 Commands:
-  start <task>       - 开始任务
+  start <task>       - 开始任务 (CP0 INIT: 自动检索相似历史)
   done               - 完成任务
   blocked <reason>   - 报告阻塞
   verify             - 运行验证
@@ -31,6 +31,7 @@ Commands:
   checkpoint <cp> <status> - 更新检查点状态
   show               - 显示当前状态
   reset              - 重置状态
+  history            - 显示任务历史和修复记录
 
 Examples:
   $0 start "实现登录功能"
@@ -39,6 +40,7 @@ Examples:
   $0 gate lint passed
   $0 checkpoint CP1 completed
   $0 show
+  $0 history
   $0 reset
 EOF
 }
@@ -49,6 +51,38 @@ check_state() {
         error "state.json not found: $STATE_FILE"
         info "Run: ./setup.sh <type> to initialize"
         exit 1
+    fi
+}
+
+# Memory 检索 (CP0 INIT)
+memory_retrieve() {
+    local task="$1"
+    
+    # 提取关键词用于检索（简化版：取前3个词）
+    local keywords=$(echo "$task" | tr ' ' '\n' | grep -v '^$' | head -3 | tr '\n' ',' | sed 's/,$//')
+    
+    # 检索 taskHistory（相似任务）
+    local history_count=$(jq '.taskHistory | length' "$STATE_FILE" 2>/dev/null || echo 0)
+    if [ "$history_count" -gt 0 ]; then
+        echo ""
+        info "Memory: found $history_count historical task(s)"
+        jq -r '.taskHistory[-3:][] | "  - \(.task)" ' "$STATE_FILE" 2>/dev/null || true
+    fi
+    
+    # 检索 healing.retryHistory（历史修复经验）
+    local heal_count=$(jq '.healing.retryHistory | length' "$STATE_FILE" 2>/dev/null || echo 0)
+    if [ "$heal_count" -gt 0 ]; then
+        echo ""
+        warn "Healing History: $heal_count past attempt(s)"
+        jq -r '.healing.retryHistory[-3:][] | "  [Attempt \(.attempt)] \(.status): \(.failedGates | join(", ")) — \(.errorSummary[:60])..."' "$STATE_FILE" 2>/dev/null || true
+    fi
+    
+    # 如果有 python memory-retrieval 工具，调用它
+    local retrieval_tool="$(dirname "$0")/../tools/cli/memory-retrieval.py"
+    if [ -f "$retrieval_tool" ]; then
+        echo ""
+        info "Running memory retrieval..."
+        python3 "$retrieval_tool" . --keywords "$keywords" --limit 3 2>/dev/null || true
     fi
 }
 
@@ -63,6 +97,11 @@ cmd_start() {
     fi
     
     check_state
+    
+    # CP0 INIT: Memory 检索
+    echo ""
+    info "CP0 INIT: Running memory retrieval..."
+    memory_retrieve "$task"
     
     # 更新状态
     tmp=$(mktemp)
@@ -88,9 +127,14 @@ cmd_done() {
         exit 1
     fi
     
+    # 写入 taskHistory
+    tmp=$(mktemp)
+    jq ".taskHistory = (.taskHistory // []) + [{task: \"$task\", completedAt: \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}] | .taskHistory = .taskHistory[-20:]" "$STATE_FILE" > "$tmp"
+    mv "$tmp" "$STATE_FILE"
+    
     # 更新状态
     tmp=$(mktemp)
-    jq ".taskStatus = \"completed\" | .lastUpdated = \"$(date +%Y-%m-%d)\" | .checkpoints.CP5 = \"completed\"" "$STATE_FILE" > "$tmp"
+    jq ".taskStatus = \"completed\" | .lastUpdated = \"$(date +%Y-%m-%d)\" | .checkpoints.CP5 = \"completed\" | .metrics.tasksCompleted = (.metrics.tasksCompleted // 0) + 1" "$STATE_FILE" > "$tmp"
     mv "$tmp" "$STATE_FILE"
     
     # 添加变更记录
@@ -285,6 +329,12 @@ show_status() {
     echo "Recent Changes:"
     jq -r '.recentChanges[-3:][] | "  [\(.timestamp)] \(.type): \(.description)"' "$STATE_FILE" 2>/dev/null || echo "  none"
     echo ""
+    
+    # Healing 状态
+    local heal_enabled=$(jq -r '.healing.enabled' "$STATE_FILE" 2>/dev/null || echo "true")
+    local heal_attempts=$(jq -r '.healing.currentAttempt' "$STATE_FILE" 2>/dev/null || echo 0)
+    echo "Healing: enabled=$heal_enabled, attempts=$heal_attempts"
+    echo ""
 }
 
 # 重置状态
@@ -297,13 +347,42 @@ cmd_reset() {
     if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
         # 重置状态
         tmp=$(mktemp)
-        jq ".currentTask = null | .taskStatus = \"idle\" | .stage = \"none\" | .checkpoints = {CP1: \"pending\", CP2: \"pending\", CP3: \"pending\", CP4: \"pending\", CP5: \"pending\"} | .gates = {lint: \"pending\", typecheck: \"pending\", test: \"pending\", build: \"pending\"} | .lastUpdated = \"$(date +%Y-%m-%d)\" | .recentChanges = []" "$STATE_FILE" > "$tmp"
+        jq ".currentTask = null | .taskStatus = \"idle\" | .stage = \"none\" | .checkpoints = {CP0: \"pending\", CP1: \"pending\", CP2: \"pending\", CP3: \"pending\", CP4: \"pending\"} | .gates = {init: \"pending\", plan: \"pending\", exec: \"pending\", verify: \"pending\", complete: \"pending\"} | .lastUpdated = \"$(date +%Y-%m-%d)\" | .recentChanges = [] | .healing.currentAttempt = 0 | .healing.lastAttempt = null | .healing.lastError = null | .healing.retryHistory = []" "$STATE_FILE" > "$tmp"
         mv "$tmp" "$STATE_FILE"
         
         success "State reset"
     else
         info "Cancelled"
     fi
+}
+
+# 显示历史
+cmd_history() {
+    check_state
+    
+    echo ""
+    echo "======================================"
+    echo "  Memory History"
+    echo "======================================"
+    echo ""
+    
+    local history_count=$(jq '.taskHistory | length' "$STATE_FILE" 2>/dev/null || echo 0)
+    echo "Task History ($history_count tasks):"
+    if [ "$history_count" -gt 0 ]; then
+        jq -r '.taskHistory[-10:][] | "  [\(.completedAt // \"\")] \(.task)" ' "$STATE_FILE" 2>/dev/null || echo "  none"
+    else
+        echo "  none"
+    fi
+    echo ""
+    
+    local heal_count=$(jq '.healing.retryHistory | length' "$STATE_FILE" 2>/dev/null || echo 0)
+    echo "Healing History ($heal_count attempts):"
+    if [ "$heal_count" -gt 0 ]; then
+        jq -r '.healing.retryHistory[] | "  [Attempt \(.attempt)] \(.status): \(.failedGates | join(", ")) — \(.errorSummary[:80])..."' "$STATE_FILE" 2>/dev/null || echo "  none"
+    else
+        echo "  none"
+    fi
+    echo ""
 }
 
 # 添加变更记录
@@ -350,6 +429,9 @@ main() {
             ;;
         show)
             show_status
+            ;;
+        history)
+            cmd_history
             ;;
         reset)
             cmd_reset

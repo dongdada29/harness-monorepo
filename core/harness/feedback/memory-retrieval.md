@@ -212,7 +212,7 @@ async function cp0Init(task: Task): Promise<CP0State> {
 ### Phase 3: CP0 集成
 - [x] `AGENTS.md` — 添加 Memory 检索时机和流程 (2026-04-30)
 - [x] `CLAUDE.md` — 添加 Memory 检索命令和规范 (2026-04-30)
-- [ ] 在 `scripts/state.sh` 中实现检索逻辑
+- [x] `scripts/update-state.sh` — `start` 时自动检索 + `done` 写入 taskHistory + `history` 命令 (2026-04-30)
 
 ### Phase 4: 工具实现
 - [x] `tools/cli/memory-retrieval.py` — 检索 CLI (2026-04-30)
