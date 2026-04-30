@@ -417,6 +417,67 @@ function diffCommand(projectDir, cpArg) {
   }
 }
 
+// harness score [project-dir]
+function scoreCommand(projectDir) {
+  const target = path.resolve(projectDir || process.cwd());
+  const stateFile = path.join(target, "harness/feedback/state/state.json");
+  if (!fs.existsSync(stateFile)) { log.err("No harness found"); process.exit(1); }
+
+  const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+  const gates = state.gates || {};
+  const heal = state.healing || {};
+  const metrics = state.metrics || {};
+  const autonomy = state.autonomy || {};
+
+  // Gate score (40%)
+  const gateKeys = Object.keys(gates);
+  let gateScore = 50; // neutral baseline
+  if (gateKeys.length > 0) {
+    const failed = gateKeys.filter(k => gates[k] === "failed").length;
+    const passed = gateKeys.filter(k => gates[k] === "passed").length;
+    gateScore = Math.round(((passed + (gateKeys.length - failed) * 0.5) / gateKeys.length) * 100);
+  }
+
+  // Healing score (30%) — more retry history = lower autonomy quality
+  const historyLen = (heal.retryHistory || []).length;
+  const healScore = Math.max(0, 100 - historyLen * 25);
+
+  // Metrics score (20%) — task completion ratio
+  const completed = metrics.tasksCompleted || 0;
+  const blocked = metrics.tasksBlocked || 0;
+  const total = completed + blocked || 1;
+  const metricScore = Math.round((completed / total) * 100);
+
+  // Autonomy score (10%) — higher level = more autonomous
+  const level = autonomy.level || 4;
+  const autonomyScore = Math.min(100, Math.round((level / 9) * 100));
+
+  const totalScore = Math.round(gateScore * 0.4 + healScore * 0.3 + metricScore * 0.2 + autonomyScore * 0.1);
+
+  // Grade
+  let grade, gradeColor;
+  if (totalScore >= 90) { grade = "S"; gradeColor = chalk.green; }
+  else if (totalScore >= 75) { grade = "A"; gradeColor = chalk.green; }
+  else if (totalScore >= 60) { grade = "B"; gradeColor = chalk.blue; }
+  else if (totalScore >= 40) { grade = "C"; gradeColor = chalk.yellow; }
+  else { grade = "D"; gradeColor = chalk.red; }
+
+  console.log(chalk.bold("\n📊 Harness Score — " + (state.project || target.split("/").pop())));
+  console.log(chalk.gray("  Total: ") + gradeColor(grade) + chalk.gray("  ") + gradeColor(String(totalScore)) + chalk.gray("/100\n"));
+  console.log(chalk.gray("  Gate Score   (40%) = ") + (gateScore >= 75 ? chalk.green : gateScore >= 50 ? chalk.yellow : chalk.red)(String(gateScore) + "/100"));
+  console.log(chalk.gray("  Heal Score  (30%) = ") + (healScore >= 75 ? chalk.green : healScore >= 50 ? chalk.yellow : chalk.red)(String(healScore) + "/100") + chalk.gray("  (retry history: " + historyLen + ")"));
+  console.log(chalk.gray("  Metric Score(20%) = ") + (metricScore >= 75 ? chalk.green : metricScore >= 50 ? chalk.yellow : chalk.red)(String(metricScore) + "/100") + chalk.gray("  (blocked: " + blocked + ")"));
+  console.log(chalk.gray("  Autonomy Lv (10%) = ") + chalk.blue(String(autonomyScore) + "/100") + chalk.gray("  (L" + level + ")"));
+  console.log();
+
+  if (totalScore < 60) {
+    console.log(chalk.yellow("  💡 Run `harness heal` to auto-repair failed gates"));
+    console.log(chalk.yellow("  💡 Run `harness benchmark` for full evaluation\n"));
+  } else {
+    console.log(chalk.green("  ✅ Healthy — ready for next task\n"));
+  }
+}
+
 // harness clean
 function cleanCommand(targetDir) {
   const target = path.resolve(targetDir || process.cwd());
@@ -455,17 +516,63 @@ function doctorCommand() {
     issues++;
   }
 
-  // Check workspace
+  // Check workspace harness state
   const cwd = process.cwd();
   const stateFile = path.join(cwd, "harness/feedback/state/state.json");
   if (fs.existsSync(stateFile)) {
-    log.ok("Harness initialized (harness/ found)");
+    log.ok("Harness initialized");
     try {
-      const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
-      const cp = state.checkpoints;
-      console.log(chalk.gray("    Project: " + state.project));
-      console.log(chalk.gray("    CP0:" + cp.CP0 + " CP1:" + cp.CP1 + " CP2:" + cp.CP2 + " CP3:" + cp.CP3 + " CP4:" + cp.CP4));
-    } catch (_) {}
+      const raw = fs.readFileSync(stateFile, "utf8");
+      const state = JSON.parse(raw);
+      console.log(chalk.gray("    Project:  " + (state.project || "unknown")));
+      console.log(chalk.gray("    Schema:   " + (state._schema || "none") + " v" + (state.version || "?")));
+
+      // Gate summary
+      const gates = state.gates || {};
+      const gateKeys = Object.keys(gates);
+      if (gateKeys.length > 0) {
+        const failed = gateKeys.filter(k => gates[k] === "failed").length;
+        const icon = failed > 0 ? chalk.red("🔴 " + failed + " failed") : chalk.green("🟢 all clear");
+        console.log(chalk.gray("    Gates:    ") + icon + chalk.gray(" (" + gateKeys.length + " gates)"));
+      }
+
+      // Healing summary
+      const heal = state.healing;
+      if (heal) {
+        const icon = heal.enabled ? chalk.green("ON") : chalk.yellow("OFF");
+        const attempt = heal.currentAttempt || 0;
+        const max = heal.maxAttempts || 3;
+        console.log(chalk.gray("    Healing:  ") + icon + chalk.gray(" (attempt " + attempt + "/" + max + ")"));
+        if (heal.lastError) {
+          console.log(chalk.red("    LastErr:  " + heal.lastError.slice(0, 60)));
+        }
+      } else {
+        console.log(chalk.gray("    Healing:  not configured"));
+      }
+
+      // Check schema validity using state-validator
+      const validator = path.join(ROOT, "tools/validator/state-validator.py");
+      if (fs.existsSync(validator)) {
+        try {
+          const result = execSync("python3 \"" + validator + "\" \"" + stateFile + "\" 2>&1", { encoding: "utf8" });
+          if (result.includes("✅") && !result.includes("❌")) {
+            log.ok("Schema valid (harness-state-v2)");
+          } else if (result.includes("❌")) {
+            log.err("Schema invalid — run: python3 " + path.relative(cwd, validator));
+            issues++;
+          }
+        } catch (e) {
+          const out = e.stdout || e.stderr || "";
+          if (out.includes("❌") || out.includes("failed")) {
+            log.err("Schema validation failed");
+            issues++;
+          }
+        }
+      }
+    } catch (e) {
+      log.err("Malformed state.json: " + e.message);
+      issues++;
+    }
   } else {
     log.warn("No harness initialized (run: harness init)");
   }
@@ -485,10 +592,11 @@ function doctorCommand() {
   // Check CLI
   const cliBin = path.join(ROOT, "packages/cli/bin/harness.js");
   if (fs.existsSync(cliBin)) {
-    log.ok("CLI installed: " + cliBin);
+    log.ok("CLI: " + cliBin);
   } else {
     log.warn("CLI not found (install via: npm install -g @harnesskit/cli)");
   }
+  console.log();
   console.log((issues === 0 ? chalk.green("✅ All checks passed") : chalk.red("❌ " + issues + " issue(s) found")));
   process.exit(issues > 0 ? 1 : 0);
 }
@@ -601,6 +709,11 @@ program
   .command("clean [target-dir]")
   .description("Reset harness state to CP0 (clean project)")
   .action(cleanCommand);
+
+program
+  .command("score [project-dir]")
+  .description("Show quick harness score from state.json (no benchmark run)")
+  .action(scoreCommand);
 
 program
   .command("doctor")
