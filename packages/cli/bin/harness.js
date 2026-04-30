@@ -268,9 +268,39 @@ function stateCommand(cmd, args) {
       console.log(output);
       break;
     }
+    case "history": {
+      const tasks = state.taskHistory || [];
+      const recent = state.recentChanges || [];
+      console.log(chalk.bold("\n📋 Task History — " + state.project));
+      console.log(chalk.gray("  (last " + Math.min(tasks.length, 20) + " of " + tasks.length + " tasks)\n"));
+      if (tasks.length === 0) {
+        console.log(chalk.gray("    No completed tasks yet."));
+      } else {
+        const recentTasks = [...tasks].reverse().slice(0, 10);
+        for (const t of recentTasks) {
+          const ts = t.completedAt ? t.completedAt.replace("T", " ").slice(0, 16) : "?";
+          console.log("  " + chalk.green("✓") + "  " + ts + "  " + (t.task || ""));
+        }
+      }
+      console.log();
+      const heals = (state.healing?.retryHistory || []).slice(-5);
+      if (heals.length > 0) {
+        console.log(chalk.bold("🔧 Healing History"));
+        console.log(chalk.gray("  (last " + heals.length + " attempts)\n"));
+        for (const h of heals) {
+          const ts = h.timestamp ? h.timestamp.replace("T", " ").slice(0, 16) : "?";
+          const icon = h.status === "passed" ? chalk.green("✓") : chalk.red("✗");
+          const gates = (h.failedGates || []).join(", ");
+          const err = h.errorSummary ? h.errorSummary.slice(0, 50) : "";
+          console.log("  " + icon + "  " + ts + "  " + chalk.gray("[" + gates + "]") + "  " + err);
+        }
+        console.log();
+      }
+      break;
+    }
     default:
       log.err("Unknown state command: " + cmd);
-      console.log("Usage: harness state <show|start|done|blocked|gate|cp|level|stats|export>");
+      console.log("Usage: harness state <show|start|done|blocked|gate|cp|level|stats|export|history>");
       process.exit(1);
   }
 }
