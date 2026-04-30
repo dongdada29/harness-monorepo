@@ -120,7 +120,7 @@ function runCP4(cwd) {
 }
 
 // ── Gate runner ─────────────────────────────────────────────────────────────
-function runGates(cwd) {
+function parseGates(cwd) {
   const constraintsFile = path.join(cwd, "harness/base/constraints.md");
   const DEFAULT_GATES = [
     { name: "lint", cmd: "npm run lint", desc: "ESLint" },
@@ -128,30 +128,156 @@ function runGates(cwd) {
     { name: "test", cmd: "npm test", desc: "Tests" },
     { name: "build", cmd: "npm run build", desc: "Build" },
   ];
-
-  let gates = DEFAULT_GATES;
-  if (fs.existsSync(constraintsFile)) {
-    const content = fs.readFileSync(constraintsFile, "utf8");
-    const found = [];
-    const re = /Gate\s+(\d+):\s*(.+?)\s*(?:→|->)\s*(.+)/gi;
-    let m;
-    while ((m = re.exec(content)) !== null) {
-      found.push({ name: m[3].trim().toLowerCase().replace(/\s+/g, "_"), cmd: m[2].trim(), desc: m[3].trim() });
-    }
-    if (found.length > 0) gates = found;
+  if (!fs.existsSync(constraintsFile)) return DEFAULT_GATES;
+  const content = fs.readFileSync(constraintsFile, "utf8");
+  const found = [];
+  const re = /Gate\s+(\d+):\s*(.+?)\s*(?:→|->)\s*(.+)/gi;
+  let m;
+  while ((m = re.exec(content)) !== null) {
+    found.push({ name: m[3].trim().toLowerCase().replace(/\s+/g, "_"), cmd: m[2].trim(), desc: m[3].trim() });
   }
+  return found.length > 0 ? found : DEFAULT_GATES;
+}
 
-  let allPassed = true;
+// Returns { passed: string[], failed: { name, desc, error }[], allPassed: boolean }
+function runGates(cwd, gateList) {
+  const gates = gateList || parseGates(cwd);
+  const passed = [];
+  const failed = [];
   for (const gate of gates) {
     try {
-      execSync(gate.cmd, { cwd, stdio: "ignore", timeout: 120000 });
+      execSync(gate.cmd, { cwd, stdio: "pipe", timeout: 120000 });
       console.log("  ✅ " + gate.desc);
+      passed.push(gate.name);
     } catch (e) {
+      const err = e.stdout?.toString() || e.stderr?.toString() || "";
       console.log("  ❌ " + gate.desc + " FAILED");
-      allPassed = false;
+      failed.push({ name: gate.name, desc: gate.desc, error: err });
     }
   }
-  return allPassed;
+  return { passed, failed, allPassed: failed.length === 0 };
+}
+
+// ── Healing helpers ─────────────────────────────────────────────────────────
+function initHealingState(cwd) {
+  const state = loadState(cwd) || {};
+  state.healing = {
+    enabled: true,
+    maxAttempts: 3,
+    currentAttempt: 0,
+    lastAttempt: null,
+    lastError: null,
+    retryHistory: [],
+    autoHeal: true,
+  };
+  state.lastUpdated = new Date().toISOString();
+  saveState(cwd, state);
+  return state;
+}
+
+function recordHealingAttempt(cwd, attemptNum, failedGates, errorSummary, filesTouched, status) {
+  const state = loadState(cwd);
+  if (!state) return;
+  state.healing = state.healing || {};
+  state.healing.currentAttempt = attemptNum;
+  state.healing.lastAttempt = new Date().toISOString();
+  state.healing.lastError = errorSummary;
+  state.healing.retryHistory = state.healing.retryHistory || [];
+  state.healing.retryHistory.push({
+    attempt: attemptNum,
+    timestamp: new Date().toISOString(),
+    failedGates,
+    errorSummary,
+    filesTouched: filesTouched || [],
+    status,
+  });
+  state.lastUpdated = new Date().toISOString();
+  saveState(cwd, state);
+}
+
+function getHealingConfig(cwd) {
+  const state = loadState(cwd);
+  if (!state) return { enabled: false, maxAttempts: 3, autoHeal: true };
+  return {
+    enabled: state.healing?.enabled !== false,
+    maxAttempts: state.healing?.maxAttempts || 3,
+    currentAttempt: state.healing?.currentAttempt || 0,
+    autoHeal: state.healing?.autoHeal !== false,
+    autonomyLevel: state.autonomy?.level || 4,
+  };
+}
+
+/**
+ * Run CP4 self-healing loop.
+ * Returns: { success: boolean, attempts: number, reason?: string }
+ */
+function runHealingLoop(cwd, opts) {
+  const cfg = getHealingConfig(cwd);
+  if (!cfg.enabled) {
+    console.log("\n⚠️  Healing is disabled. Enable with: agent-harness healing on");
+    return { success: false, attempts: 0, reason: "healing_disabled" };
+  }
+  if (cfg.autonomyLevel < 3) {
+    console.log("\n⚠️  Autonomy level L" + cfg.autonomyLevel + " — healing requires L3+");
+    return { success: false, attempts: 0, reason: "autonomy_too_low" };
+  }
+
+  const max = opts?.maxAttempts || cfg.maxAttempts;
+  const dryRun = opts?.dryRun || false;
+  const force = opts?.force || false;
+  const gates = parseGates(cwd);
+
+  console.log("\n" + "=".repeat(50));
+  console.log("🔄 CP4 Self-Healing Loop");
+  console.log("=".repeat(50));
+  console.log("  Max attempts: " + max);
+  console.log("  Dry run:      " + (dryRun ? "yes" : "no"));
+  console.log("  Force:        " + (force ? "yes" : "no"));
+  console.log("");
+
+  for (let attempt = (cfg.currentAttempt || 0) + 1; attempt <= max; attempt++) {
+    console.log("\n── Attempt " + attempt + "/" + max + " ──");
+
+    const result = runGates(cwd, gates);
+
+    if (result.allPassed) {
+      recordHealingAttempt(cwd, attempt, [], "All gates passed", [], "passed");
+      console.log("\n🎉 All gates passed after " + attempt + " attempt(s)!");
+      const s = loadState(cwd);
+      s.gates.verify = "passed";
+      s.lastUpdated = new Date().toISOString();
+      saveState(cwd, s);
+      return { success: true, attempts: attempt };
+    }
+
+    const failedNames = result.failed.map(f => f.name);
+    const errorSummary = result.failed.map(f => f.desc + ": " + (f.error.split("\n")[0] || "unknown").slice(0, 100)).join(" | ");
+
+    console.log("\n❌ Gates failed: " + failedNames.join(", "));
+    console.log("   Error: " + errorSummary.slice(0, 120));
+
+    if (dryRun) {
+      console.log("\n[dry-run] Would attempt repair here.");
+      recordHealingAttempt(cwd, attempt, failedNames, errorSummary, [], "failed");
+      continue;
+    }
+
+    recordHealingAttempt(cwd, attempt, failedNames, errorSummary, [], "failed");
+
+    if (!force && attempt >= max) {
+      console.log("\n❌ Max attempts (" + max + ") reached. Requesting human intervention.");
+      return { success: false, attempts: attempt, reason: "max_attempts" };
+    }
+
+    console.log("\n🔧 Analyzing and attempting repair...");
+    console.log("   (Self-heal: Agent should now fix errors, then re-run 'agent-harness heal')");
+    for (const f of result.failed) {
+      console.log("     - Fix " + f.desc + " (" + f.name + ")");
+      console.log("       Error: " + (f.error.split("\n")[0] || "").slice(0, 80));
+    }
+  }
+
+  return { success: false, attempts: max, reason: "max_attempts" };
 }
 
 // ── CLI entry ────────────────────────────────────────────────────────────────
@@ -164,6 +290,8 @@ if (!cmd) {
   console.log("Commands:");
   console.log("  run <task>        Run full CP0→CP4 workflow for a task");
   console.log("  verify            Run quality gates");
+  console.log("  heal              Run CP4 self-healing loop");
+  console.log("  healing <on|off>  Enable/disable self-healing");
   console.log("  state             Show current state");
   console.log("  init              Initialize harness in current project");
   console.log("  checkpoint <name> Set checkpoint (CP0-CP4)");
@@ -187,7 +315,17 @@ switch (cmd) {
     break;
   }
   case "verify": {
-    if (!runGates(cwd)) { console.log("\n❌ Gates failed."); process.exit(1); }
+    const gates = parseGates(cwd);
+    const result = runGates(cwd, gates);
+    const state = loadState(cwd);
+    if (state) {
+      for (const p of result.passed) state.gates[p] = "passed";
+      for (const f of result.failed) state.gates[f.name] = "failed";
+      state.gates.verify = result.allPassed ? "passed" : "failed";
+      state.lastUpdated = new Date().toISOString();
+      saveState(cwd, state);
+    }
+    if (!result.allPassed) { console.log("\n❌ Gates failed."); process.exit(1); }
     console.log("\n🎉 All gates passed!");
     break;
   }
@@ -203,8 +341,8 @@ switch (cmd) {
       process.exit(0);
     }
     runCP2(cwd);
-    const gatesOk = runGates(cwd);
-    if (!gatesOk) { console.log("\n❌ Gates failed at CP3."); process.exit(1); }
+    const gatesResult = runGates(cwd);
+    if (!gatesResult.allPassed) { console.log("\n❌ Gates failed at CP3. Run 'agent-harness heal' to auto-repair."); process.exit(1); }
     runCP3(cwd);
     runCP4(cwd);
     console.log("\n🎉 Task '" + task + "' completed successfully!");
@@ -221,8 +359,55 @@ switch (cmd) {
     console.log("Checkpoint " + cp + " → " + s.checkpoints[cp]);
     break;
   }
+  case "heal": {
+    const cfg = getHealingConfig(cwd);
+    const healState = loadState(cwd);
+    const verifyStatus = healState?.gates?.verify;
+    if (verifyStatus !== "failed" && verifyStatus !== "pending") {
+      console.log("\n⚠️  No failed gates to heal. Run 'agent-harness verify' first.");
+      process.exit(3);
+    }
+    const opts = {
+      maxAttempts: parseInt(args.find(a => /^\d+$/.test(a))) || undefined,
+      dryRun: args.includes("--dry-run"),
+      force: args.includes("--force"),
+    };
+    const result = runHealingLoop(cwd, opts);
+    if (result.success) process.exit(0);
+    else if (result.reason === "healing_disabled") process.exit(2);
+    else process.exit(1);
+  }
+  case "healing": {
+    const action = args[0];
+    if (!action || !["on", "off", "status"].includes(action)) {
+      console.error("Usage: agent-harness healing <on|off|status>"); process.exit(1);
+    }
+    const state = loadState(cwd) || {};
+    state.healing = state.healing || { enabled: true, maxAttempts: 3, autoHeal: true };
+    if (action === "status") {
+      console.log("\n🔧 Healing Status — " + (state.project || cwd));
+      console.log("  Enabled:     " + (state.healing.enabled ? "yes" : "no"));
+      console.log("  Max attempts: " + state.healing.maxAttempts);
+      console.log("  Current:     " + (state.healing.currentAttempt || 0));
+      console.log("  Auto-heal:   " + (state.healing.autoHeal ? "yes" : "no"));
+      if (state.healing.retryHistory?.length > 0) {
+        console.log("  History:     " + state.healing.retryHistory.length + " attempt(s)");
+        for (const h of state.healing.retryHistory.slice(-3)) {
+          console.log("    [Attempt " + h.attempt + "] " + h.status + ": " + h.failedGates.join(", ") + " — " + (h.errorSummary || "").slice(0, 60));
+        }
+      }
+      console.log("");
+      break;
+    }
+    if (action === "on") { state.healing.enabled = true; state.healing.autoHeal = true; }
+    if (action === "off") { state.healing.enabled = false; state.healing.autoHeal = false; }
+    state.lastUpdated = new Date().toISOString();
+    saveState(cwd, state);
+    console.log("Healing " + (action === "on" ? "enabled" : "disabled"));
+    break;
+  }
   default:
     console.error("Unknown command: " + cmd);
-    console.error("Usage: agent-harness <init|state|verify|run|checkpoint>");
+    console.error("Usage: agent-harness <init|state|verify|run|checkpoint|heal|healing>");
     process.exit(1);
 }

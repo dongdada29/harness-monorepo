@@ -539,6 +539,60 @@ program
   .action(verifyCommand);
 
 program
+  .command("heal [project-dir]")
+  .description("Run CP4 self-healing loop (auto-repair failed gates)")
+  .option("--dry-run", "Analyze errors without fixing")
+  .option("--force", "Force retry even if max attempts reached")
+  .option("--max <n>", "Max healing attempts")
+  .action(function(projectDir, opts) {
+    const target = path.resolve(projectDir || process.cwd());
+    const stateFile = path.join(target, "harness/feedback/state/state.json");
+    if (!fs.existsSync(stateFile)) { log.err("No harness found. Run: harness init"); process.exit(1); }
+    // Delegate to agent-harness
+    const agentHarness = path.join(ROOT, "packages/agent-harness/index.js");
+    if (!fs.existsSync(agentHarness)) { log.err("agent-harness not found"); process.exit(1); }
+    const healArgs = [];
+    if (opts.dryRun) healArgs.push("--dry-run");
+    if (opts.force) healArgs.push("--force");
+    if (opts.max) healArgs.push(String(opts.max));
+    const shellCmd = "node \"" + agentHarness + "\" heal " + healArgs.join(" ");
+    try {
+      execSync(shellCmd, { cwd: target, stdio: "inherit" });
+    } catch (e) { process.exit(e.status || 1); }
+  });
+
+program
+  .command("healing <on|off|status>")
+  .description("Enable/disable self-healing (on|off|status)")
+  .action(function(action) {
+    const cwd2 = process.cwd();
+    const stateFile = path.join(cwd2, "harness/feedback/state/state.json");
+    if (!fs.existsSync(stateFile)) { log.err("No harness found. Run: harness init"); process.exit(1); }
+    const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+    state.healing = state.healing || { enabled: true, maxAttempts: 3, autoHeal: true };
+    if (action === "status") {
+      console.log("\n🔧 Healing Status — " + state.project);
+      console.log("  Enabled:     " + (state.healing.enabled ? "yes" : "no"));
+      console.log("  Max attempts: " + state.healing.maxAttempts);
+      console.log("  Current:     " + (state.healing.currentAttempt || 0));
+      console.log("  Auto-heal:   " + (state.healing.autoHeal ? "yes" : "no"));
+      if (state.healing.retryHistory?.length > 0) {
+        console.log("  History:     " + state.healing.retryHistory.length + " attempt(s)");
+        for (const h of state.healing.retryHistory.slice(-3)) {
+          console.log("    [Attempt " + h.attempt + "] " + h.status + ": " + h.failedGates.join(", "));
+        }
+      }
+      console.log("");
+      return;
+    }
+    if (action === "on") { state.healing.enabled = true; state.healing.autoHeal = true; }
+    if (action === "off") { state.healing.enabled = false; state.healing.autoHeal = false; }
+    state.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+    log.ok("Healing " + (action === "on" ? "enabled" : "disabled"));
+  });
+
+program
   .command("open-pr [args]")
   .description("Open PR after CP3")
   .action(openPrCommand);
