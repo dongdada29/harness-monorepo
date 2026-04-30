@@ -71,12 +71,15 @@ harness doctor  # 检查环境
 
 ```
 harness init [type] [dir] --template basic|advanced   初始化
-harness state show|start|done|blocked|stats|export  状态管理
+harness state show|start|done|blocked|stats|history|export  状态管理
+harness heal [--dry-run]                          CP4 自愈循环
+harness healing <on|off|status>                    自愈管理
+harness score [dir]                                快速分数
 harness verify [dir]                              运行 Gate
 harness test [dir]                               运行测试
 harness benchmark [dir]                          运行评分
 harness clean [dir]                               重置 CP0
-harness doctor                                    检查环境
+harness doctor                                    环境健康检查
 ```
 
 ---

@@ -663,7 +663,6 @@ program
 program
   .command("test [project-dir]")
   .description("Run project tests (npm test)")
-  .argument("[project-dir]", "Target directory (default: cwd)")
   .action(testCommand);
 
 program

@@ -48,10 +48,13 @@ node packages/cli/bin/harness.js init generic /path/to/project --template basic
 | `harness state start <task>` | 开始任务 |
 | `harness state done` | 标记完成 |
 | `harness state stats` | 查看 metrics |
+| `harness state history` | 查看任务历史 + healing 记录 |
 | `harness state export` | 导出 state.json |
 | `harness verify` | 运行质量门禁 |
 | `harness heal [--dry-run]` | CP4 自愈循环（Gate失败后自动修复重试） |
 | `harness healing <on|off|status>` | 管理自愈功能 |
+| `harness score` | 快速分数（Gate+Heal+Metric+Autonomy） |
+| `harness doctor` | 环境健康检查 |
 | `harness test` | 运行测试 |
 | `harness clean` | 重置到 CP0 |
 | `harness doctor` | 检查环境 |
