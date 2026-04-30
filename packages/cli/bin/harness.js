@@ -533,6 +533,7 @@ function cleanCommand(targetDir) {
       const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
       state.checkpoints = { CP0: "pending", CP1: "pending", CP2: "pending", CP3: "pending", CP4: "pending" };
       state.gates = { init: "pending", plan: "pending", exec: "pending", verify: "pending", complete: "pending" };
+      state.healing = { enabled: true, maxAttempts: 3, currentAttempt: 0, lastAttempt: null, lastError: null, retryHistory: [], autoHeal: true };
       state.lastUpdated = new Date().toISOString();
       fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
       log.ok("State reset to CP0");
