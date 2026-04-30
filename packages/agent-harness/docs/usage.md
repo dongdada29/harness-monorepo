@@ -154,17 +154,40 @@ claude
 # ... 继续其他步骤
 ```
 
-#### CP4: 质量门禁
+#### CP3: 执行实现（Gate 失败 → CP4 自愈）
+
+```bash
+# 步骤 1: 创建 LoginForm
+创建 src/components/LoginForm.tsx
+
+# 验证
+harness verify   # 或 /verify
+
+# 步骤 2: 创建 useAuth
+创建 src/hooks/useAuth.ts
+
+# 验证
+harness verify
+
+# ... 继续其他步骤
+```
+
+#### CP4: 质量门禁 + 自愈循环
 
 ```bash
 # 运行所有门禁
-/verify
+harness verify   # 或 /verify
 
-# 或单独运行
-npm run lint       # Gate 1
-npm run typecheck  # Gate 2
-npm test           # Gate 3
-npm run build      # Gate 4
+# Gate 失败？自动进入 CP4 自愈循环
+#
+# 1. 查看失败详情
+harness heal --dry-run
+#
+# 2. Agent 修复后，重新验证
+harness heal
+#
+# 3. 通过 → 继续 CP5
+#    失败 → 最多重试 3 次，超限则升级 L3
 ```
 
 #### CP5: 审查完成
@@ -174,10 +197,10 @@ npm run build      # Gate 4
 /review
 
 # 2. 检查所有门禁通过
-/state
+harness state show
 
-# 3. 完成任务
-/done
+# 3. 完成任务（自动写入 taskHistory）
+harness state done
 ```
 
 ---
@@ -210,31 +233,39 @@ npm run build      # Gate 4
 修改 8 个文件  # 需要拆分任务
 ```
 
-### 3. 验证频率
+### 3. 验证频率 + 自愈
 
 ```bash
 # ✅ 每步验证
-创建文件 → /verify → 下一步
+创建文件 → harness verify → 下一步
+
+# ✅ Gate 失败时利用自愈
+harness verify      # ❌ lint failed
+harness heal        # 修复 → 重验证 → 通过 → 继续
 
 # ❌ 一次性完成所有工作
-创建 5 个文件 → /verify（可能有很多错误）
+创建 5 个文件 → harness verify（可能有很多错误）
 ```
 
 ### 4. 阻塞处理
 
 ```bash
 # ✅ 及时报告
-/blocked API 文档缺失，需要澄清登录接口
+harness state blocked "API 文档缺失，需要澄清登录接口"
+
+# ✅ 利用 Memory 检索同类阻塞的解决方案
+# CP0 开始时会自动检索 healing.retryHistory
 
 # ❌ 继续猜测
 # 随意假设 API 格式
 ```
 
-### 5. 状态更新
+### 5. 状态更新 + Memory
 
 ```bash
 # ✅ 保持状态最新
 完成步骤 → 立即更新 state.json
+harness state done  # 完成后写入 taskHistory（供下次任务检索）
 
 # ❌ 忘记更新
 # state.json 显示 idle，实际已完成
@@ -319,8 +350,10 @@ git pull
 ### 场景 1: Bug 修复
 
 ```bash
-# 开始
-/start 修复登录失败问题
+# 开始（CP0：自动检索相似历史）
+harness state start "修复登录失败问题"
+# → 显示 taskHistory 中同类 bug 的修复记录
+# → 显示 healing.retryHistory 中的修复经验
 
 # 定位
 检查 API 返回值 → 发现 token 格式错误
@@ -329,10 +362,13 @@ git pull
 修改 src/services/auth.ts
 
 # 验证
-/verify
+harness verify      # ❌ Gate lint failed
+
+# CP4 自愈
+harness heal        # 修复 lint → 重验证 → 通过
 
 # 完成
-/done
+harness state done  # 写入 taskHistory
 ```
 
 ### 场景 2: 功能添加
@@ -357,11 +393,11 @@ git pull
 /done
 ```
 
-### 场景 3: 重构
+### ### 场景 3: 重构
 
 ```bash
-# 开始
-/start 重构状态管理为 Zustand
+# 开始（CP0：检索历史重构经验）
+harness state start "重构状态管理为 Zustand"
 
 # 规划
 1. 安装依赖
@@ -370,12 +406,12 @@ git pull
 4. 删除旧代码
 
 # 执行（小步）
-迁移组件 1 → /verify
-迁移组件 2 → /verify
+迁移组件 1 → harness verify
+迁移组件 2 → harness verify
 ...
 
 # 完成
-/done
+harness state done
 ```
 
 ---
@@ -410,10 +446,10 @@ jq . harness/feedback/state/state.json
 
 ## 下一步
 
-- 查看 [示例项目](../examples/todo-app)
-- 阅读 [故障排查](./troubleshooting.md)
+- 阅读 [反馈回路](./feedback-loop.md) — 理解 CP4 自愈机制
+- 阅读 [质量门禁](./quality-gates.md) — 了解 Gate 体系
 - 学习 [评估系统](../tools/eval-cli/README.md)
 
 ---
 
-*最后更新: 2026-03-22*
+*最后更新: 2026-04-30*
