@@ -183,11 +183,21 @@ function stateCommand(cmd, args) {
 
   switch (cmd) {
     case "show": {
+      const gates = state.gates || {};
+      const heal = state.healing || {};
+      const cp = state.checkpoints || {};
+      const failedGates = Object.keys(gates).filter(k => gates[k] === "failed");
       console.log("\n" + chalk.bold("Harness State") + " — " + state.project);
-      console.log("CP0: " + state.checkpoints.CP0 + "  CP1: " + state.checkpoints.CP1 + "  CP2: " + state.checkpoints.CP2 + "  CP3: " + state.checkpoints.CP3 + "  CP4: " + state.checkpoints.CP4);
-      console.log("Gate — init: " + state.gates.init + "  plan: " + state.gates.plan + "  exec: " + state.gates.exec + "  verify: " + state.gates.verify + "  complete: " + state.gates.complete);
-      console.log("Autonomy: L" + (state.autonomy?.level || 4));
-      console.log("Tasks: " + state.metrics.tasksCompleted + " completed, " + state.metrics.tasksBlocked + " blocked\n");
+      console.log("CP0: " + cp.CP0 + "  CP1: " + cp.CP1 + "  CP2: " + cp.CP2 + "  CP3: " + cp.CP3 + "  CP4: " + cp.CP4);
+      console.log("Gate — init: " + gates.init + "  plan: " + gates.plan + "  exec: " + gates.exec + "  verify: " + gates.verify + "  complete: " + gates.complete)
+        + (failedGates.length > 0 ? chalk.red("  ❌ " + failedGates.join(", ") + " failed") : chalk.gray("  🟢 all clear"));
+      if (heal.enabled) {
+        const histLen = (heal.retryHistory || []).length;
+        console.log(chalk.gray("Healing:  ") + chalk.green("ON") + chalk.gray(" (attempt " + (heal.currentAttempt || 0) + "/" + (heal.maxAttempts || 3) + ", history: " + histLen + ")"));
+      } else {
+        console.log(chalk.gray("Healing:  OFF"));
+      }
+      console.log(chalk.gray("Autonomy: L" + (state.autonomy?.level || 4) + "  |  Tasks: " + (state.metrics?.tasksCompleted || 0) + " done, " + (state.metrics?.tasksBlocked || 0) + " blocked\n"));
       break;
     }
     case "start": {
