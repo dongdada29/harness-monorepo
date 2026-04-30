@@ -202,8 +202,16 @@ function stateCommand(cmd, args) {
     }
     case "start": {
       if (!args) { log.err("Usage: harness state start <task-description>"); process.exit(1); }
+      state.currentTask = args;
+      state.taskStatus = "in_progress";
+      state.checkpoints = state.checkpoints || {};
+      state.checkpoints.CP0 = "in_progress";
+      state.checkpoints.CP1 = "pending";
+      state.checkpoints.CP2 = "pending";
+      state.checkpoints.CP3 = "pending";
+      state.checkpoints.CP4 = "pending";
+      state.gates = { init: "in_progress", plan: "pending", exec: "pending", verify: "pending", complete: "pending" };
       state.lastUpdated = new Date().toISOString();
-      state.gates.init = "in_progress";
       writeState(projectDir, state);
       log.ok("Task started: " + args);
       break;
@@ -519,7 +527,7 @@ function scoreCommand(projectDir) {
   const level = autonomy.level || 4;
   const autonomyScore = Math.min(100, Math.round((level / 9) * 100));
 
-  const totalScore = Math.round(gateScore * 0.4 + healScore * 0.3 + metricScore * 0.2 + autonomyScore * 0.1);
+  const totalScore = Math.min(100, Math.round(gateScore * 0.4 + healScore * 0.3 + metricScore * 0.2 + autonomyScore * 0.1));
 
   // Grade
   let grade, gradeColor;
