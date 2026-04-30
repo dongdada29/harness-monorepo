@@ -355,13 +355,33 @@ function verifyCommand(projectDir) {
     }
   }
 
-  // Update state
+  // Update state + healing
   if (state) {
     for (const r of results) {
       if (state.gates[r.gate] !== undefined) state.gates[r.gate] = r.status;
     }
     state.gates.verify = allPassed ? "passed" : "failed";
     state.lastUpdated = new Date().toISOString();
+
+    // Update healing state when gates fail
+    if (!allPassed) {
+      state.healing = state.healing || { enabled: true, maxAttempts: 3, autoHeal: true };
+      const failed = results.filter(r => r.status === "failed");
+      state.healing.currentAttempt = (state.healing.currentAttempt || 0) + 1;
+      state.healing.lastAttempt = new Date().toISOString();
+      state.healing.lastError = failed.map(r => r.gate + ": " + (r.error || "").slice(0, 80)).join("; ");
+      state.healing.retryHistory = state.healing.retryHistory || [];
+      state.healing.retryHistory.push({
+        attempt: state.healing.currentAttempt,
+        timestamp: new Date().toISOString(),
+        failedGates: failed.map(r => r.gate),
+        errorSummary: state.healing.lastError.slice(0, 200),
+        filesTouched: [],
+        status: "failed"
+      });
+      if (state.healing.retryHistory.length > 20) state.healing.retryHistory = state.healing.retryHistory.slice(-20);
+    }
+
     writeState(target, state);
   }
 
