@@ -1,6 +1,7 @@
 {
-  "_schema": "harness-feedback-v1",
-  "version": "1.0.0",
+  "_schema": "harness-state-v2",
+  "version": "2.0.0",
+  "project": "harness",
   "type": "business",
   "platform": "agent-desktop",
   "lastUpdated": "2026-03-25",
@@ -12,17 +13,30 @@
     "CP4": "pending"
   },
   "gates": {
-    "check": "pending",
-    "test": "pending",
-    "build": "pending"
+    "init": "pending",
+    "plan": "pending",
+    "exec": "pending",
+    "verify": "pending",
+    "complete": "pending"
+  },
+  "healing": {
+    "enabled": true,
+    "maxAttempts": 3,
+    "currentAttempt": 0,
+    "lastAttempt": null,
+    "lastError": null,
+    "retryHistory": [],
+    "autoHeal": true
   },
   "metrics": {
     "tasksCompleted": 0,
-    "tasksBlocked": 0,
-    "gatesPassed": 0,
-    "gatesFailed": 0,
-    "humanInterventions": 0,
-    "averageTaskDuration": 0
+    "tasksBlocked": 0
   },
-  "recentChanges": []
+  "autonomy": {
+    "level": 4,
+    "requireApprovalFor": [],
+    "autoMergeOnCI": false
+  },
+  "recentChanges": [],
+  "taskHistory": []
 }

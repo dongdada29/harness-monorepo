@@ -205,16 +205,22 @@ async function cp0Init(task: Task): Promise<CP0State> {
 - [x] 本文档 — Memory 检索规范
 
 ### Phase 2: Schema 更新
-- [ ] 更新 `state.v1.schema.json` → `state.v2.schema.json`
-- [ ] 统一 `_schema` 版本线（消除 harness-core-v1 / v2 并行）
+- [x] 更新 `state.v2.schema.json` → 添加 `healing` 字段 (2026-04-30)
+- [x] 统一 `_schema` 版本线 — 26 个文件全部迁移到 `harness-state-v2` (2026-04-30)
+  - `scripts/migrate-schema.py` — 迁移脚本
 
 ### Phase 3: CP0 集成
+- [x] `AGENTS.md` — 添加 Memory 检索时机和流程 (2026-04-30)
+- [x] `CLAUDE.md` — 添加 Memory 检索命令和规范 (2026-04-30)
 - [ ] 在 `scripts/state.sh` 中实现检索逻辑
-- [ ] 在 `AGENTS.md` 中添加 Memory 检索 prompt
 
 ### Phase 4: 工具实现
-- [ ] `tools/cli/memory-retrieval.py` — 检索 CLI
-- [ ] `tools/validator/memory-validator.py` — Schema 验证
+- [x] `tools/cli/memory-retrieval.py` — 检索 CLI (2026-04-30)
+  - `--type episodic|semantic|healing|task`
+  - `--keywords` / `--limit` / `--days`
+  - `--json` raw output
+- [x] `tools/validator/state-validator.py` — Schema 验证 (2026-04-30)
+  - 纯 Python 无依赖，支持 union types
 
 ---
 

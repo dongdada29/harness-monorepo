@@ -1,26 +1,41 @@
 {
+  "_schema": "harness-state-v2",
+  "version": "2.0.0",
   "project": "todo-app",
-  "version": "1.0.0",
   "type": "generic",
+  "platform": "generic",
   "lastUpdated": "2026-03-22",
-  "currentTask": null,
-  "taskStatus": "idle",
-  "stage": "none",
   "checkpoints": {
+    "CP0": "pending",
     "CP1": "pending",
     "CP2": "pending",
     "CP3": "pending",
-    "CP4": "pending",
-    "CP5": "pending"
+    "CP4": "pending"
   },
   "gates": {
-    "lint": "pending",
-    "typecheck": "pending",
-    "test": "pending",
-    "build": "pending"
+    "init": "pending",
+    "plan": "pending",
+    "exec": "pending",
+    "verify": "pending",
+    "complete": "pending"
   },
-  "constraints": {
-    "maxFilesPerTask": 5
+  "healing": {
+    "enabled": true,
+    "maxAttempts": 3,
+    "currentAttempt": 0,
+    "lastAttempt": null,
+    "lastError": null,
+    "retryHistory": [],
+    "autoHeal": true
+  },
+  "metrics": {
+    "tasksCompleted": 0,
+    "tasksBlocked": 0
+  },
+  "autonomy": {
+    "level": 4,
+    "requireApprovalFor": [],
+    "autoMergeOnCI": false
   },
   "recentChanges": [
     {
@@ -28,5 +43,6 @@
       "type": "initialized",
       "description": "Project initialized"
     }
-  ]
+  ],
+  "taskHistory": []
 }
